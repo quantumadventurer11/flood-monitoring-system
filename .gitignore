@@ -1,0 +1,48 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.egg-info/
+.eggs/
+dist/
+build/
+.venv/
+venv/
+env/
+*.env
+!backend/.env.example
+
+# Node
+node_modules/
+frontend/dist/
+frontend/.vite/
+*.tsbuildinfo
+
+# Database & data files
+*.db
+*.sqlite
+*.sqlite3
+code/data/
+*.tif
+*.tiff
+*.nc
+*.h5
+
+# Secrets
+.env
+*.pem
+*.key
+
+# IDE
+.vscode/settings.json
+.idea/
+*.swp
+*.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Docker
+.dockerenv
