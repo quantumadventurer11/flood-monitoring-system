@@ -1,6 +1,6 @@
 import { Outlet, NavLink, useNavigate } from 'react-router-dom'
 import {
-  LayoutDashboard, Map, Bell, Activity, CloudDownload,
+  LayoutDashboard, Map, Bell, Download,
   LogOut, Waves
 } from 'lucide-react'
 import clsx from 'clsx'
@@ -10,7 +10,7 @@ const navItems = [
   { to: '/map',     icon: Map,             label: 'World Map'  },
   { to: '/events',  icon: Waves,           label: 'Flood Events' },
   { to: '/alerts',  icon: Bell,            label: 'Alerts'    },
-  { to: '/ingest',  icon: CloudDownload,   label: 'Data Ingestion' },
+  { to: '/ingest',  icon: Download,        label: 'Data Ingestion' },
 ]
 
 export function Layout() {
