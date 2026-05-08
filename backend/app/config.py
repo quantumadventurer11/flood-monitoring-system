@@ -16,9 +16,9 @@ class Settings(BaseSettings):
     
     # Database
     DATABASE_URL: str
-    POSTGRES_USER: str
-    POSTGRES_PASSWORD: str
-    POSTGRES_DB: str
+    POSTGRES_USER: str = "flood_user"
+    POSTGRES_PASSWORD: str = "flood_pass"
+    POSTGRES_DB: str = "flood_db"
     POSTGRES_HOST: str = "localhost"
     POSTGRES_PORT: int = 5432
     
