@@ -38,6 +38,7 @@ class User(Base):
     alerts = relationship("Alert", back_populates="user")
     subscriptions = relationship("UserAreaSubscription", back_populates="user", cascade="all, delete-orphan")
     audit_logs = relationship("AuditLog", back_populates="user")
+    notifications = relationship("Notification", back_populates="user")
 
 
 class UserSession(Base):
