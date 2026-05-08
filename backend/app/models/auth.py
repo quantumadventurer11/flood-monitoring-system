@@ -1,7 +1,7 @@
 """
 Authentication and user management models.
 """
-from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey, VARBINARY
+from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 
@@ -28,7 +28,7 @@ class User(Base):
     role_id = Column(Integer, ForeignKey("roles.role_id"), nullable=False)
     email = Column(String(320), unique=True, nullable=False, index=True)
     display_name = Column(String(120), nullable=False)
-    password_hash = Column(VARBINARY(256), nullable=False)
+    password_hash = Column(String(256), nullable=False)   # bcrypt hash stored as string
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     last_login_at = Column(DateTime(timezone=True), nullable=True)
@@ -46,7 +46,7 @@ class UserSession(Base):
 
     session_id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.user_id", ondelete="CASCADE"), nullable=False)
-    refresh_token_hash = Column(VARBINARY(256), nullable=False)
+    refresh_token_hash = Column(String(256), nullable=False)  # stored as string
     issued_at = Column(DateTime(timezone=True), server_default=func.now())
     expires_at = Column(DateTime(timezone=True), nullable=False)
     revoked_at = Column(DateTime(timezone=True), nullable=True)
