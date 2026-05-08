@@ -2,12 +2,10 @@
 Authentication API routes: register, login, logout, profile.
 """
 from fastapi import APIRouter, Depends, HTTPException, status, Request
-from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
-from datetime import timedelta
-from passlib.context import CryptContext
+from datetime import timedelta, datetime, timezone
+import bcrypt
 from jose import JWTError, jwt
-from datetime import datetime, timezone
 
 from ...database import get_db
 from ...models.auth import User, Role
@@ -15,15 +13,16 @@ from ...schemas.auth import UserCreate, UserResponse, Token, UserLogin
 from ...config import settings
 
 router = APIRouter()
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 
-def get_password_hash(password: str) -> bytes:
-    return pwd_context.hash(password).encode()
+def get_password_hash(password: str) -> str:
+    """Hash a password using bcrypt and return as a UTF-8 string."""
+    return bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
 
 
-def verify_password(plain: str, hashed: bytes) -> bool:
-    return pwd_context.verify(plain, hashed.decode())
+def verify_password(plain: str, hashed: str) -> bool:
+    """Verify a plain password against its bcrypt hash."""
+    return bcrypt.checkpw(plain.encode("utf-8"), hashed.encode("utf-8"))
 
 
 def create_access_token(data: dict) -> str:
