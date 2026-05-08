@@ -1,157 +1,143 @@
 # 🌊 Flood Monitoring System
 
-An AI-powered flood monitoring system with a real-time interactive dashboard, satellite data ingestion, and alert management — built entirely with free and open-source tools.
+A full-stack flood monitoring dashboard with a React frontend, FastAPI backend, PostGIS database, and Copernicus/Sentinel satellite data integration.
 
-## Architecture
+---
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│  Frontend (React + Vite + Leaflet + Tailwind)               │
-│  Port 3000  –  Interactive world map, dashboard, alerts     │
-└──────────────────────┬──────────────────────────────────────┘
-                       │ REST API
-┌──────────────────────▼──────────────────────────────────────┐
-│  Backend (FastAPI + SQLAlchemy)                             │
-│  Port 8000  –  Auth, CRUD, satellite ingestion endpoints    │
-└──────────────────────┬──────────────────────────────────────┘
-                       │
-┌──────────────────────▼──────────────────────────────────────┐
-│  PostgreSQL + PostGIS                                       │
-│  Port 5432  –  All structured data, geospatial queries      │
-└─────────────────────────────────────────────────────────────┘
-                       │
-          Copernicus STAC API (FREE, no key needed for search)
-          Sentinel-1 (SAR) + Sentinel-2 (Optical) imagery
-```
+## 👋 Hey team — here's how to get the app running on your machine
 
-## Quick Start (Docker – recommended)
+You only need **two things** installed:
+- [Git](https://git-scm.com/downloads)
+- [Docker Desktop](https://www.docker.com/products/docker-desktop/) ← **make sure it's running before you start**
 
-### Prerequisites
-- [Docker Desktop](https://www.docker.com/products/docker-desktop/)
+---
 
-```bash
-# Clone the repo
+## ⚡ Quick Start (copy-paste into PowerShell)
+
+### Step 1 — Clone the repo
+
+```powershell
 git clone https://github.com/quantumadventurer11/flood-monitoring-system.git
 cd flood-monitoring-system
+```
 
-# Start all services
-docker compose up
+### Step 2 — Start the whole app (first time takes ~3–5 minutes to download)
 
-# In a second terminal – seed the database
+```powershell
+docker compose up --build
+```
+
+Wait until you see **both** of these lines in the terminal:
+```
+backend-1  | INFO:     Application startup complete.
+frontend-1 |   ➜  Local:   http://localhost:3000/
+```
+
+### Step 3 — Seed the database (open a **new** PowerShell window for this)
+
+```powershell
+cd flood-monitoring-system
 docker compose exec backend python seed_db.py
 ```
 
-Open **http://localhost:3000** and register an account.
+You should see: `✅ Database seeded successfully.`
+
+### Step 4 — Open the dashboard
+
+Open your browser and go to: **http://localhost:3000**
+
+- Click **"Register"** to create your account
+- Log in → explore the dashboard!
 
 ---
 
-## Manual Setup (no Docker)
+## 🛑 Stopping the app
 
-### Backend
+Press **Ctrl+C** in the terminal running `docker compose up`, then run:
 
-```bash
-cd backend
-python -m venv .venv
-.venv\Scripts\activate        # Windows
-pip install -r requirements.txt
-
-# Copy and edit environment variables
-copy .env.example .env        # Windows
-# Edit DATABASE_URL, SECRET_KEY etc.
-
-# Run migrations and seed
-python seed_db.py
-
-# Start API server
-uvicorn app.main:app --reload
+```powershell
+docker compose down
 ```
-
-### Frontend
-
-```bash
-cd frontend
-npm install
-npm run dev
-```
-
-Open **http://localhost:3000**
 
 ---
 
-## Features
+## 🔄 Starting again later (after first setup)
 
-| Feature | Description |
-|---------|-------------|
-| 🗺️ **World Map** | Interactive Leaflet map with 15 pre-seeded flood-prone regions worldwide |
-| 🛰️ **Satellite Ingestion** | Trigger Sentinel-1/2 data fetches via free Copernicus STAC API |
-| 🌊 **Flood Events** | View and filter AI-detected flood events by confidence level |
-| 🔔 **Alerts** | Configurable threshold-based alerts with severity levels |
-| 📊 **Dashboard** | Real-time overview of active events, alerts, and quick actions |
-| 🔐 **Auth** | JWT-based registration and login |
+You don't need `--build` again. Just run:
 
-## Free Data Sources
+```powershell
+cd flood-monitoring-system
+docker compose up
+```
 
-- **Sentinel-1 (SAR)** – ESA Copernicus, free STAC catalogue search
-- **Sentinel-2 (Optical)** – ESA Copernicus, free STAC catalogue search
-- **OpenStreetMap** – Free tile layer for the map
+The database keeps its data between restarts.
 
-## Tech Stack
+---
+
+## 🗺️ What's in the dashboard
+
+| Page | What you can do |
+|------|----------------|
+| **Dashboard** | Live stats — active flood events, alerts, sensor count |
+| **World Map** | Click any of 15 flood-prone regions worldwide to select it |
+| **Flood Events** | Browse all recorded flood events by region and severity |
+| **Alerts** | View triggered flood alerts and their status |
+| **Data Ingestion** | Select a region + Sentinel-1 or Sentinel-2 + date range → fetch real satellite data |
+
+---
+
+## 🐛 Troubleshooting
+
+**Port already in use?**
+```powershell
+docker compose down
+docker compose up
+```
+
+**Database errors after updating?**
+```powershell
+docker compose down -v   # ⚠️ This wipes the database
+docker compose up --build
+docker compose exec backend python seed_db.py
+```
+
+**Want to see live logs?**
+```powershell
+docker compose logs -f backend
+docker compose logs -f frontend
+```
+
+---
+
+## 🛠️ Tech Stack
 
 | Layer | Technology |
 |-------|-----------|
-| Frontend | React 18, Vite, Tailwind CSS, Leaflet, Recharts |
-| Backend | FastAPI, SQLAlchemy, Pydantic, python-jose |
+| Frontend | React 18, TypeScript, Vite, Tailwind CSS, React-Leaflet |
+| Backend | FastAPI, SQLAlchemy, Alembic |
 | Database | PostgreSQL 16 + PostGIS |
-| Satellite | Copernicus Data Space STAC API |
-| Container | Docker Compose |
-| Hosting | Railway (backend) + Vercel (frontend) – free tier |
+| Satellite data | Copernicus Data Space (Sentinel-1 SAR + Sentinel-2 optical) |
+| Auth | JWT (python-jose) + bcrypt |
+| Deployment | Docker + Docker Compose |
 
-## API Documentation
+---
 
-Once the backend is running, visit:
-- **Swagger UI**: http://localhost:8000/docs
-- **ReDoc**: http://localhost:8000/redoc
-
-## Project Structure
+## 📁 Project Structure
 
 ```
 flood-monitoring-system/
 ├── backend/
 │   ├── app/
-│   │   ├── api/routes/       # FastAPI route handlers
-│   │   ├── models/           # SQLAlchemy ORM models
-│   │   ├── schemas/          # Pydantic request/response schemas
-│   │   ├── services/         # Business logic & satellite integration
-│   │   ├── config.py
-│   │   ├── database.py
-│   │   └── main.py
-│   ├── requirements.txt
-│   └── seed_db.py
+│   │   ├── api/routes/     # FastAPI route handlers
+│   │   ├── models/         # SQLAlchemy database models
+│   │   ├── schemas/        # Pydantic request/response schemas
+│   │   └── services/       # Business logic (satellite, seeding)
+│   ├── Dockerfile
+│   └── requirements.txt
 ├── frontend/
-│   ├── src/
-│   │   ├── api/              # Axios API client
-│   │   ├── components/       # Shared UI components
-│   │   ├── pages/            # Route-level pages
-│   │   └── types/            # TypeScript interfaces
-│   ├── index.html
-│   └── package.json
-└── docker-compose.yml
+│   └── src/
+│       ├── components/     # Shared UI components (Layout, sidebar)
+│       └── pages/          # Dashboard, Map, Events, Alerts, Ingest
+├── docker-compose.yml
+└── seed_db.py
 ```
-
-## Deployment (Free Hosting)
-
-### Backend → Railway
-1. Push to GitHub
-2. Create project at [railway.app](https://railway.app)
-3. Add PostgreSQL plugin (free tier)
-4. Set environment variables from `.env.example`
-5. Deploy from GitHub
-
-### Frontend → Vercel
-1. Import repo at [vercel.com](https://vercel.com)
-2. Set `VITE_API_URL` to your Railway backend URL
-3. Deploy
-
----
-
-*Research references: Sentinel-1/2 flood detection papers, DeepFuse, GAN-based SAR-optical fusion, Vision Transformer for flood detection.*
