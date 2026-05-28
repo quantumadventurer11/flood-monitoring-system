@@ -23,6 +23,14 @@ Backend API: `http://localhost:8000`
 - Weather: Open-Meteo API with deterministic fallback
 - Satellite: Copernicus credential shell with simulated fallback
 
+## Repository Map
+
+- `backend/` - FastAPI app, SQLAlchemy models, Alembic migration, ML/weather/satellite services, and tests.
+- `frontend/` - React/Vite/Tailwind app with dashboard pages and paper reproduction components.
+- `docs/` - supporting project and research documents.
+- `.readme` - detailed maintainer guide explaining the repository contents.
+- `docker-compose.yml` - local full-stack runtime.
+
 ## API
 
 - `POST /ingest`

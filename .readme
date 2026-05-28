@@ -39,6 +39,22 @@ Top-Level Files
 - .readme
   This detailed repository map for maintainers and reviewers.
 
+- docs/
+  Supporting documentation and inherited research materials that should not sit in the project root.
+
+Docs
+----
+
+Location:
+
+    docs/
+
+- docs/README.md
+  Short index for supporting documentation.
+
+- docs/research/
+  Research documents and inherited PDFs used as project context.
+
 Backend
 -------
 
