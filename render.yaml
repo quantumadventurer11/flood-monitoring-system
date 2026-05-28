@@ -1,0 +1,26 @@
+services:
+  - type: web
+    name: flood-monitoring-system-backend
+    runtime: python
+    rootDir: backend
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: alembic upgrade head && python seed_db.py && uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: flood-monitoring-system-db
+          property: connectionString
+      - key: COPERNICUS_USER
+        sync: false
+      - key: COPERNICUS_PASSWORD
+        sync: false
+      - key: ALLOWED_ORIGINS
+        sync: false
+
+databases:
+  - name: flood-monitoring-system-db
+    databaseName: flooddb
+    user: flood_monitoring
+    plan: free
