@@ -1,38 +1,66 @@
 services:
   db:
     image: postgres:15
+    env_file:
+      - path: .env
+        required: false
     environment:
-      POSTGRES_DB: flooddb
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: ${POSTGRES_DB:-flooddb}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
     volumes:
       - postgres_data:/var/lib/postgresql/data
     ports:
       - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-flooddb}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - floodnet
 
   backend:
     build: ./backend
+    env_file:
+      - path: .env
+        required: false
     environment:
-      DATABASE_URL: postgresql://postgres:postgres@db:5432/flooddb
+      DATABASE_URL: ${DATABASE_URL:-postgresql://postgres:postgres@db:5432/flooddb}
       COPERNICUS_USER: ${COPERNICUS_USER:-}
       COPERNICUS_PASSWORD: ${COPERNICUS_PASSWORD:-}
       CORS_ORIGINS: http://localhost:3000,http://127.0.0.1:3000,https://*.vercel.app
+    command: sh -c "alembic upgrade head && python seed_db.py && uvicorn app.main:app --host 0.0.0.0 --port 8000"
     ports:
       - "8000:8000"
     depends_on:
-      - db
+      db:
+        condition: service_healthy
+    networks:
+      - floodnet
 
   frontend:
     build:
       context: ./frontend
       args:
         VITE_API_URL: http://localhost:8000
+    env_file:
+      - path: .env
+        required: false
     environment:
-      VITE_API_URL: http://localhost:8000
+      VITE_API_URL: ${VITE_API_URL:-http://localhost:8000}
+    command: npm run dev -- --host 0.0.0.0
     ports:
       - "3000:3000"
     depends_on:
       - backend
+    networks:
+      - floodnet
 
 volumes:
   postgres_data:
+    name: flood_monitoring_postgres_data
+
+networks:
+  floodnet:
+    name: flood_monitoring_network

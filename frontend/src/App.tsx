@@ -1,5 +1,5 @@
-import { Activity, BarChart3, CloudRain, History, MapPinned, Microscope } from "lucide-react";
-import { useMemo, useState } from "react";
+import { Activity, CloudRain, History, MapPinned, Microscope } from "lucide-react";
+import { useState } from "react";
 import Dashboard from "./pages/Dashboard";
 import Forecast from "./pages/Forecast";
 import HistoryPage from "./pages/History";
@@ -16,7 +16,12 @@ const pages = [
 
 export default function App() {
   const [active, setActive] = useState("dashboard");
-  const Page = useMemo(() => pages.find((page) => page.id === active)?.component ?? Dashboard, [active]);
+  const [forecastPlace, setForecastPlace] = useState<{ country: string; lat: number; lon: number } | null>(null);
+  const openForecast = (place: { country: string; lat: number; lon: number }) => {
+    setForecastPlace(place);
+    setActive("forecast");
+    window.history.replaceState(null, "", `?country=${encodeURIComponent(place.country)}&lat=${place.lat}&lon=${place.lon}`);
+  };
 
   return (
     <div className="min-h-screen bg-slate-50">
@@ -46,7 +51,11 @@ export default function App() {
         </div>
       </header>
       <main className="mx-auto max-w-7xl px-4 py-6">
-        <Page />
+        {active === "dashboard" && <Dashboard onOpenForecast={openForecast} />}
+        {active === "predictor" && <Predictor onOpenForecast={openForecast} />}
+        {active === "forecast" && <Forecast initialPlace={forecastPlace} />}
+        {active === "history" && <HistoryPage />}
+        {active === "methodology" && <Methodology />}
       </main>
     </div>
   );

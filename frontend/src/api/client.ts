@@ -15,6 +15,8 @@ export type Prediction = {
   risk_level: string;
   classification: string;
   confidence: number;
+  data_source: string;
+  date: string;
 };
 
 export type ForecastDay = {
@@ -23,6 +25,36 @@ export type ForecastDay = {
   risk_level: string;
   precipitation_mm: number;
   soil_moisture: number;
+  river_discharge: number | null;
+  warning: boolean;
+};
+
+export type Region = {
+  id: number;
+  country: string;
+  lat: number;
+  lon: number;
+  buffer_km: number;
+  risk_level?: string;
+  risk_baseline: number;
+};
+
+export type Event = {
+  id: number;
+  country: string;
+  event_date: string;
+  flood_probability: number;
+  risk_level: string;
+  classification: string;
+  source: string;
+};
+
+export type Alert = {
+  id: number;
+  country: string;
+  message: string;
+  risk_level: string;
+  created_at: string;
 };
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
@@ -38,9 +70,9 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 
 export const api = {
   paperResults: () => request<PaperResults>("/paper-results"),
-  events: () => request<any[]>("/events"),
-  alerts: () => request<any[]>("/alerts"),
-  regions: () => request<any[]>("/regions"),
+  events: () => request<Event[]>("/events"),
+  alerts: () => request<Alert[]>("/alerts"),
+  regions: () => request<Region[]>("/regions"),
   predict: (body: { country: string; lat: number; lon: number; date: string }) =>
     request<Prediction>("/predict", { method: "POST", body: JSON.stringify(body) }),
   forecast: (body: { country: string; lat: number; lon: number }) =>

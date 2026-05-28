@@ -24,7 +24,7 @@ export default function WorkflowDiagram() {
             </ul>
           </div>
           {index < phases.length - 1 && (
-            <div className="hidden items-center justify-center text-aqua lg:flex">
+            <div className="hidden animate-pulse items-center justify-center text-aqua lg:flex">
               <ArrowRight />
             </div>
           )}

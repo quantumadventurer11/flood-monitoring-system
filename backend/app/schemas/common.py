@@ -28,6 +28,8 @@ class PredictResponse(BaseModel):
     risk_level: str
     classification: str
     confidence: float
+    data_source: str
+    date: date
 
 
 class ForecastRequest(BaseModel):
@@ -42,6 +44,8 @@ class ForecastDay(BaseModel):
     risk_level: str
     precipitation_mm: float
     soil_moisture: float
+    river_discharge: float | None = None
+    warning: bool = False
 
 
 class EventOut(BaseModel):
@@ -72,6 +76,7 @@ class RegionOut(BaseModel):
     lat: float
     lon: float
     buffer_km: float
-    risk_level: str
+    risk_level: str | None = None
+    risk_baseline: float
 
     model_config = {"from_attributes": True}

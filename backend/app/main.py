@@ -12,8 +12,10 @@ from app.database import init_db
 async def lifespan(app: FastAPI):
     init_db()
     from seed_db import seed
+    from app.services.classifier import ensure_model
 
     seed()
+    ensure_model()
     yield
 
 

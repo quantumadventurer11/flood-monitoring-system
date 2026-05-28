@@ -14,6 +14,7 @@ class Region(Base):
     lon: Mapped[float] = mapped_column(Float)
     buffer_km: Mapped[float] = mapped_column(Float, default=50.0)
     risk_level: Mapped[str] = mapped_column(String(24), default="Low")
+    risk_baseline: Mapped[float] = mapped_column(Float, default=0.1)
 
 
 class Event(Base):
@@ -50,6 +51,8 @@ class Prediction(Base):
     risk_level: Mapped[str] = mapped_column(String(24))
     classification: Mapped[str] = mapped_column(String(32))
     confidence: Mapped[float] = mapped_column(Float)
+    data_source: Mapped[str] = mapped_column(String(40), default="fallback")
+    satellite_date: Mapped[date] = mapped_column(Date)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
 
