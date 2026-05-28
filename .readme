@@ -1,0 +1,291 @@
+Flood Monitoring System Repository Guide
+=======================================
+
+This repository contains a full-stack flood monitoring and prediction web app based on the supplied GLOC 2026 research paper. It is designed as both an operational dashboard and a living reproduction of the paper methodology, figures, charts, tables, and seeded results.
+
+Quick Start
+-----------
+
+Run from the project root:
+
+    cd C:\software_engineering\flood-monitoring-system
+    docker compose up --build
+
+Then open:
+
+    Frontend: http://localhost:3000
+    Backend API docs: http://localhost:8000/docs
+    Health check: http://localhost:8000/health
+
+Stop the app with Ctrl+C, then:
+
+    docker compose down
+
+Top-Level Files
+---------------
+
+- docker-compose.yml
+  Runs PostgreSQL 15, the FastAPI backend on port 8000, and the React frontend on port 3000.
+
+- .env.example
+  Documents required runtime variables, including DATABASE_URL, COPERNICUS_USER, COPERNICUS_PASSWORD, and VITE_API_URL.
+
+- .gitignore
+  Keeps local dependencies, generated Python files, environment files, model pickles, PDFs, local DB files, and QA screenshots out of git.
+
+- README.md
+  User-facing setup and project overview.
+
+- .readme
+  This detailed repository map for maintainers and reviewers.
+
+Backend
+-------
+
+Location:
+
+    backend/
+
+Main technologies:
+
+- FastAPI
+- SQLAlchemy
+- Alembic
+- Pydantic
+- PostgreSQL
+- NumPy, SciPy, scikit-image, scikit-learn, XGBoost, rasterio
+- Open-Meteo integration through httpx
+
+Important files:
+
+- backend/app/main.py
+  Creates the FastAPI app, configures CORS, includes all routers, and seeds the database on startup through a FastAPI lifespan handler.
+
+- backend/app/database.py
+  Configures SQLAlchemy engine/session handling and initializes tables.
+
+- backend/app/config.py
+  Loads environment configuration through pydantic-settings.
+
+- backend/seed_db.py
+  Idempotently seeds the paper results, initial regions, events, and alerts.
+
+- backend/alembic/
+  Contains Alembic configuration and the initial migration.
+
+- backend/tests/test_backend.py
+  Backend tests for seeded paper data, prediction shape, feature extraction, labeling, and index math.
+
+Backend API Routes
+------------------
+
+The route modules live in:
+
+    backend/app/api/routes/
+
+Exposed endpoints:
+
+- POST /ingest
+  Accepts country, lat/lon, buffer, and date range. Uses Copernicus credentials if available; otherwise returns deterministic simulated ingest metadata.
+
+- POST /predict
+  Returns flood_probability, risk_level, classification, and confidence.
+
+- POST /forecast
+  Returns a five-day Open-Meteo operational forecast with flood_likelihood, risk_level, precipitation_mm, and soil_moisture.
+
+- GET /paper-results
+  Returns seeded paper reproduction data: dataset stats, model metrics, ablation results, confusion matrices, sensitivity analysis, key features, and paper notes.
+
+- GET /events
+  Returns seeded/recent flood monitoring events.
+
+- GET /alerts
+  Returns active alert records.
+
+- GET /regions
+  Returns configured monitoring regions.
+
+Backend Services
+----------------
+
+Location:
+
+    backend/app/services/
+
+- preprocessing.py
+  Implements QA60 cloud masking, NDWI/NDVI computation, normalization, 64x64 tiling, 61-feature extraction, and flood labeling.
+
+- classifier.py
+  Loads backend/app/ml/xgboost_model.pkl if present. If no model exists, uses a deterministic fallback so the app still demos end-to-end.
+
+- forecaster.py
+  Calls Open-Meteo and maps precipitation/soil moisture into flood likelihood. Falls back to deterministic data if the weather request fails.
+
+- satellite.py
+  Contains the Copernicus ingest shell and simulated fallback behavior.
+
+- paper_data.py
+  Contains the authoritative seeded paper values used by the UI and API.
+
+- patch_visualizer.py
+  Provides deterministic metadata helpers for simulated paper visuals.
+
+- risk.py
+  Shared Low/Medium/High risk thresholds.
+
+Frontend
+--------
+
+Location:
+
+    frontend/
+
+Main technologies:
+
+- React 18
+- TypeScript
+- Vite
+- Tailwind CSS
+- Recharts
+- Leaflet / react-leaflet
+- lucide-react icons
+
+Important files:
+
+- frontend/src/App.tsx
+  Top-level navigation shell for Dashboard, Predictor, Forecast, History, and Methodology.
+
+- frontend/src/api/client.ts
+  Fetch client and shared response types for backend communication.
+
+- frontend/src/vite-env.d.ts
+  Vite type shim for import.meta.env support in TypeScript builds.
+
+- frontend/src/styles/index.css
+  Tailwind entrypoint and shared utility styles.
+
+Frontend Pages
+--------------
+
+Location:
+
+    frontend/src/pages/
+
+- Dashboard.tsx
+  Interactive map, selected-region prediction, flood gauge, alert banner, and recent events table.
+
+- Predictor.tsx
+  Country/date input flow that calls POST /predict.
+
+- Forecast.tsx
+  Five-day Open-Meteo operational forecast view. This is intentionally labeled as an app extension, not a paper result.
+
+- History.tsx
+  Searchable flood-event table with CSV export.
+
+- Methodology.tsx
+  Centerpiece paper reproduction page with anchor navigation and all required figures/tables.
+
+Frontend Components
+-------------------
+
+Location:
+
+    frontend/src/components/
+
+Operational dashboard components:
+
+- Map.tsx
+- CountrySelector.tsx
+- FloodGauge.tsx
+- ForecastChart.tsx
+- AlertBanner.tsx
+- EventsTable.tsx
+
+Paper reproduction components:
+
+- WorkflowDiagram.tsx
+  Reproduces Fig. 1 as a four-phase workflow.
+
+- NDWIMask.tsx
+  Reproduces Fig. 2 with deterministic simulated raw and NDWI-masked panels. The fallback texture was improved to avoid duplicate-looking diagonal patterns.
+
+- PatchGrid.tsx
+  Reproduces Fig. 3 with 16 deterministic 64x64 patch thumbnails: 8 flood and 8 no-flood. The fallback generator now uses varied deterministic noise/blobs so thumbnails do not look duplicated.
+
+- PixelDistribution.tsx
+  Reproduces Fig. 4 with June/July/August NDWI distributions and the NDWI > 0.0 threshold.
+
+- ROCCurveChart.tsx
+  Reproduces Fig. 5 with seeded ROC curves and AUC labels.
+
+- DatasetTable.tsx
+  Reproduces Table 2.
+
+- ModelMetricsTable.tsx
+  Reproduces Table A1.
+
+- AblationTable.tsx
+  Reproduces Table 3.
+
+Seeded Paper Values
+-------------------
+
+The app treats Table A1 and Table 3 as authoritative where the PDF prose conflicts with structured values.
+
+Key seeded values:
+
+- June 1, 2024: 2,630 patches, 41.8% flooded
+- July 1, 2024: 2,249 patches, 13.3% flooded
+- August 1, 2024: 1,889 patches, 3.9% flooded
+- XGBoost: ROC-AUC 0.9985, Accuracy 99.4%, Precision 86.7%, Recall 98.6%, F1 0.923
+- FULL ablation row: ROC-AUC 1.0000, Accuracy 1.0000, F1 1.0000
+- NO_WATER_FRACTION: ROC-AUC 0.9998, F1 0.9910
+- NO_NDWI: ROC-AUC 0.9899, F1 0.9639
+
+Testing And Verification
+------------------------
+
+Backend tests:
+
+    docker compose exec -T backend pytest
+
+Known passing result after the latest verification:
+
+    4 passed
+
+Build checks:
+
+    docker compose build frontend
+    docker compose build backend
+    docker compose up --build
+
+Verified behavior:
+
+- Frontend production build passes.
+- Backend image builds with the ML dependencies.
+- db, backend, and frontend containers start successfully.
+- http://localhost:8000/health returns {"status":"ok"}.
+- /paper-results returns exact seeded values.
+- POST /predict works for Bangladesh.
+- POST /forecast returns five days.
+- Browser QA passed for Dashboard, Predictor, Forecast, History, and Methodology.
+
+Demo Flow
+---------
+
+1. Open http://localhost:3000.
+2. Dashboard: show map, Bangladesh risk, flood gauge, alert, and events.
+3. Predictor: run Bangladesh for 2024-08-01 and show probability/classification/confidence.
+4. Forecast: show the five-day Open-Meteo extension chart.
+5. History: show event table and CSV export.
+6. Methodology: scroll through Fig. 1-5, Table 2, Table A1, and Table 3.
+
+Fallbacks And Limitations
+-------------------------
+
+- Copernicus credentials are optional. Without them, ingest uses simulated metadata.
+- The XGBoost pickle is optional. Without backend/app/ml/xgboost_model.pkl, prediction uses a deterministic fallback.
+- Paper visuals use deterministic simulated satellite textures unless real tiles are later wired in.
+- The current frontend build has a non-blocking Vite chunk-size warning due to map/chart libraries.
