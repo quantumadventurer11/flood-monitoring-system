@@ -1,0 +1,12 @@
+node_modules/
+__pycache__/
+*.pkl
+.env
+*.pyc
+.wrangler/
+Potree/
+*.pdf
+dist/
+.pytest_cache/
+flood_monitoring.db
+qa-screenshots/
