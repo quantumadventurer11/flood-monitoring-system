@@ -29,13 +29,13 @@ async def run_region_batch(payload: BatchPredictionRequest, db: Session = Depend
     """Run the model across all configured monitoring regions with bounded concurrency."""
 
     regions = db.query(Region).order_by(Region.country.asc()).all()
-    semaphore = asyncio.Semaphore(10)
+    semaphore = asyncio.Semaphore(3)
 
     async def compute_region(region: Region) -> dict:
         request = PredictRequest(country=region.country, lat=region.lat, lon=region.lon, date=payload.date)
         async with semaphore:
             try:
-                prediction = await asyncio.wait_for(compute_prediction(request), timeout=18)
+                prediction = await asyncio.wait_for(compute_prediction(request), timeout=45)
                 return {
                     "country": region.country,
                     "lat": region.lat,
