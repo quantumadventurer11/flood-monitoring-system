@@ -71,6 +71,110 @@ def test_model_status_reports_sentinel_mode_when_credentials_exist(monkeypatch):
     assert data["validation_status"] == "sentinel_scene_ready_for_unosat_audit"
 
 
+def test_forecast_full_success(monkeypatch):
+    from app.services import forecaster
+
+    class FakeResponse:
+        def __init__(self, payload):
+            self.payload = payload
+
+        def raise_for_status(self):
+            return None
+
+        def json(self):
+            return self.payload
+
+    class FakeClient:
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *_args):
+            return None
+
+        async def get(self, url, params):
+            if url == forecaster.FORECAST_URL:
+                return FakeResponse(
+                    {
+                        "daily": {"time": ["2026-06-12", "2026-06-13"], "precipitation_sum": [20.0, 4.0]},
+                        "hourly": {
+                            "time": ["2026-06-12T00:00", "2026-06-12T01:00", "2026-06-13T00:00"],
+                            "soil_moisture_0_to_1cm": [0.2, 0.3, 0.1],
+                        },
+                    }
+                )
+            return FakeResponse({"daily": {"time": ["2026-06-12", "2026-06-13"], "river_discharge_mean": [100.0, 110.0]}})
+
+    monkeypatch.setattr(forecaster.httpx, "AsyncClient", lambda **_kwargs: FakeClient())
+    response = client.post("/forecast", json={"country": "Bangladesh", "lat": 23.685, "lon": 90.3563})
+
+    assert response.status_code == 200
+    rows = response.json()
+    assert len(rows) == 5
+    assert rows[0]["forecast_status"] == "ok"
+    assert rows[0]["river_discharge_status"] == "available"
+    assert rows[0]["river_discharge"] == 100.0
+    assert rows[0]["soil_moisture"] == 0.25
+    assert rows[0]["data_source"] == "open_meteo_weather"
+
+
+def test_forecast_weather_only_when_river_fails(monkeypatch):
+    from app.services import forecaster
+
+    class FakeResponse:
+        def raise_for_status(self):
+            return None
+
+        def json(self):
+            return {"daily": {"time": ["2026-06-12"], "precipitation_sum": [12.0]}, "hourly": {}}
+
+    class FakeClient:
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *_args):
+            return None
+
+        async def get(self, url, params):
+            if url == forecaster.FLOOD_URL:
+                raise RuntimeError("river unavailable")
+            return FakeResponse()
+
+    monkeypatch.setattr(forecaster.httpx, "AsyncClient", lambda **_kwargs: FakeClient())
+    response = client.post("/forecast", json={"country": "Bangladesh", "lat": 23.685, "lon": 90.3563})
+
+    assert response.status_code == 200
+    rows = response.json()
+    assert rows[0]["forecast_status"] == "weather_only"
+    assert rows[0]["warning"] is True
+    assert rows[0]["river_discharge_status"] == "unavailable"
+    assert rows[0]["soil_moisture"] is None
+    assert "weather inputs only" in rows[0]["status_note"]
+
+
+def test_forecast_total_fallback_when_weather_fails(monkeypatch):
+    from app.services import forecaster
+
+    class FakeClient:
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *_args):
+            return None
+
+        async def get(self, url, params):
+            raise RuntimeError("network unavailable")
+
+    monkeypatch.setattr(forecaster.httpx, "AsyncClient", lambda **_kwargs: FakeClient())
+    response = client.post("/forecast", json={"country": "Bangladesh", "lat": 23.685, "lon": 90.3563})
+
+    assert response.status_code == 200
+    rows = response.json()
+    assert rows[0]["forecast_status"] == "fallback"
+    assert rows[0]["data_source"] == "fallback"
+    assert rows[0]["status_note"] == "Open-Meteo weather forecast failed; using conservative fallback rows."
+    assert rows[0]["flood_likelihood"] == 0.1
+
+
 def test_scene_prediction_aggregation_resists_single_patch_spikes():
     dry_scene = summarize_scene_prediction([0.01] * 16)
     mixed_scene = summarize_scene_prediction([0.01] * 11 + [0.99] * 5)

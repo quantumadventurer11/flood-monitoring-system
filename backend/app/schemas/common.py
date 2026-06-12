@@ -112,9 +112,13 @@ class ForecastDay(BaseModel):
     flood_likelihood: float
     risk_level: str
     precipitation_mm: float
-    soil_moisture: float
+    soil_moisture: float | None = None
     river_discharge: float | None = None
     warning: bool = False
+    data_source: str = "open_meteo"
+    forecast_status: str = "ok"
+    status_note: str | None = None
+    river_discharge_status: str | None = None
 
 
 class EventOut(BaseModel):

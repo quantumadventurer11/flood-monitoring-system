@@ -17,10 +17,10 @@ export default function PixelDistribution() {
     <div className="h-80">
       <ResponsiveContainer>
         <AreaChart data={data} margin={{ top: 16, right: 20, left: 0, bottom: 8 }}>
-          <CartesianGrid strokeDasharray="3 3" />
-          <XAxis dataKey="ndwi" type="number" domain={[-0.5, 0.5]} label={{ value: "NDWI value", position: "insideBottom", offset: -4 }} />
-          <YAxis label={{ value: "Pixel count", angle: -90, position: "insideLeft" }} />
-          <Tooltip />
+          <CartesianGrid strokeDasharray="3 3" stroke="rgba(148, 163, 184, 0.45)" />
+          <XAxis dataKey="ndwi" type="number" domain={[-0.5, 0.5]} tick={{ fill: "#64748b", fontSize: 12 }} label={{ value: "NDWI value", position: "insideBottom", offset: -4, fill: "#64748b" }} />
+          <YAxis tick={{ fill: "#64748b", fontSize: 12 }} label={{ value: "Pixel count", angle: -90, position: "insideLeft", fill: "#64748b" }} />
+          <Tooltip contentStyle={{ background: "#0f172a", border: "1px solid #334155", color: "#f8fafc", borderRadius: 8 }} labelStyle={{ color: "#f8fafc" }} />
           <Legend />
           <ReferenceLine x={0} stroke="#dc2626" strokeDasharray="5 5" label="Threshold (NDWI > 0.0)" />
           <Area type="monotone" dataKey="June" stroke="#2563eb" fill="#2563eb" fillOpacity={0.18} />

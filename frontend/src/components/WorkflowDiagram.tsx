@@ -12,9 +12,9 @@ export default function WorkflowDiagram() {
     <div className="grid gap-3 lg:grid-cols-[1fr_auto_1fr_auto_1fr_auto_1fr]">
       {phases.map((phase, index) => (
         <div key={phase.title} className="contents">
-          <div className="card border-teal-200 p-4">
+          <div className="card border-teal-200 p-4 dark:border-teal-900">
             <h3 className="font-semibold text-flood">{phase.title}</h3>
-            <ul className="mt-3 space-y-2 text-sm text-slate-700">
+            <ul className="mt-3 space-y-2 text-sm text-slate-700 dark:text-slate-300">
               {phase.steps.map((step) => (
                 <li key={step} className="flex gap-2">
                   <span className="mt-1 h-2 w-2 shrink-0 rounded-full bg-aqua" />

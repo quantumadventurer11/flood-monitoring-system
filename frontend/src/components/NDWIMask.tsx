@@ -1,4 +1,6 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
+
+type Panel = "green" | "nir" | "ndwi" | "mask";
 
 function smoothstep(t: number) {
   return t * t * (3 - 2 * t);
@@ -23,7 +25,29 @@ function valueNoise(x: number, y: number, seed: number, scale: number) {
   return (a + (b - a) * tx) * (1 - ty) + (c + (d - c) * tx) * ty;
 }
 
-function drawPanel(canvas: HTMLCanvasElement, masked: boolean) {
+function syntheticBands(x: number, y: number) {
+  const basinA = Math.hypot((x - 72) / 70, (y - 92) / 44);
+  const basinB = Math.hypot((x - 184) / 52, (y - 166) / 78);
+  const river = Math.abs(y - 148 - Math.sin(x / 25) * 34) / 42;
+  const texture = valueNoise(x, y, 24, 18) * 0.45 + valueNoise(x, y, 91, 46) * 0.55;
+  const water = Math.max(1.05 - basinA, 1.0 - basinB, 0.72 - river) + texture * 0.52 - 0.42 > 0;
+  const green = water ? 0.62 + texture * 0.2 : 0.24 + texture * 0.18;
+  const nir = water ? 0.18 + texture * 0.1 : 0.52 + texture * 0.22;
+  const ndwi = (green - nir) / Math.max(0.001, green + nir);
+  return { green, nir, ndwi, water };
+}
+
+function colorRamp(ndwi: number) {
+  const t = Math.max(0, Math.min(1, (ndwi + 0.5) / 1.0));
+  if (t < 0.5) {
+    const k = t / 0.5;
+    return [150 + k * 70, 118 + k * 70, 54 + k * 50];
+  }
+  const k = (t - 0.5) / 0.5;
+  return [70 - k * 46, 168 + k * 42, 190 + k * 45];
+}
+
+function drawPanel(canvas: HTMLCanvasElement, panel: Panel) {
   const ctx = canvas.getContext("2d");
   if (!ctx) return;
   const size = 256;
@@ -31,23 +55,23 @@ function drawPanel(canvas: HTMLCanvasElement, masked: boolean) {
   canvas.height = size;
   const image = ctx.createImageData(size, size);
   let i = 0;
+  let waterPixels = 0;
   for (let y = 0; y < size; y += 1) {
     for (let x = 0; x < size; x += 1) {
-      const basinA = Math.hypot((x - 72) / 70, (y - 92) / 44);
-      const basinB = Math.hypot((x - 184) / 52, (y - 166) / 78);
-      const river = Math.abs(y - 148 - Math.sin(x / 25) * 34) / 42;
-      const texture = valueNoise(x, y, 24, 18) * 0.45 + valueNoise(x, y, 91, 46) * 0.55;
-      const ndwi = Math.max(1.05 - basinA, 1.0 - basinB, 0.72 - river) + texture * 0.52 - 0.42;
-      const water = ndwi > 0;
-      const landTone = 88 + valueNoise(x, y, 44, 11) * 68;
-      const waterTone = 124 + valueNoise(x, y, 51, 19) * 58;
-      const color = masked
-        ? water
-          ? [0, 124 + valueNoise(x, y, 61, 15) * 48, 230 + valueNoise(x, y, 17, 9) * 25]
-          : [124 + texture * 36, 132 + texture * 32, 136 + texture * 30]
-        : water
-          ? [32 + texture * 16, 82 + texture * 42, waterTone]
-          : [landTone + 16, landTone, 52 + texture * 28];
+      const { green, nir, ndwi, water } = syntheticBands(x, y);
+      if (water) waterPixels += 1;
+      let color: number[];
+      if (panel === "green") {
+        const v = Math.round(green * 255);
+        color = [36, v, 88];
+      } else if (panel === "nir") {
+        const v = Math.round(nir * 255);
+        color = [v, 64 + v * 0.35, 56];
+      } else if (panel === "mask") {
+        color = ndwi > 0 ? [0, 145, 230] : [126, 134, 141];
+      } else {
+        color = colorRamp(ndwi);
+      }
       image.data[i++] = color[0];
       image.data[i++] = color[1];
       image.data[i++] = color[2];
@@ -55,32 +79,54 @@ function drawPanel(canvas: HTMLCanvasElement, masked: boolean) {
     }
   }
   ctx.putImageData(image, 0, 0);
+  canvas.dataset.waterFraction = String(Math.round((waterPixels / (size * size)) * 100));
+}
+
+function FigurePanel({ title, subtitle, panel }: { title: string; subtitle: string; panel: Panel }) {
+  const ref = useRef<HTMLCanvasElement>(null);
+  useEffect(() => {
+    if (ref.current) drawPanel(ref.current, panel);
+  }, [panel]);
+  return (
+    <figure className="rounded-lg border border-slate-200 bg-white p-3 dark:border-slate-800 dark:bg-slate-950">
+      <canvas ref={ref} className="aspect-square w-full rounded-md" />
+      <figcaption className="mt-2">
+        <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">{title}</p>
+        <p className="text-xs text-slate-600 dark:text-slate-400">{subtitle}</p>
+      </figcaption>
+    </figure>
+  );
 }
 
 export default function NDWIMask() {
-  const raw = useRef<HTMLCanvasElement>(null);
-  const mask = useRef<HTMLCanvasElement>(null);
-
-  useEffect(() => {
-    if (raw.current) drawPanel(raw.current, false);
-    if (mask.current) drawPanel(mask.current, true);
-  }, []);
-
+  const [waterFraction] = useState(39);
   return (
-    <div>
-      <div className="grid gap-4 md:grid-cols-2">
-        <figure className="card p-3">
-          <canvas ref={raw} className="aspect-square w-full rounded-md" />
-          <figcaption className="mt-2 text-center text-sm font-medium text-slate-700">Diagnostic satellite-style view</figcaption>
-        </figure>
-        <figure className="card p-3">
-          <canvas ref={mask} className="aspect-square w-full rounded-md" />
-          <figcaption className="mt-2 text-center text-sm font-medium text-slate-700">NDWI feature response</figcaption>
-        </figure>
+    <div className="space-y-4">
+      <div className="rounded-lg border border-blue-200 bg-blue-50 p-4 text-sm text-blue-950 dark:border-blue-800 dark:bg-blue-950/40 dark:text-blue-100">
+        <p className="font-semibold">NDWI = (Green - NIR) / (Green + NIR)</p>
+        <p className="mt-1">Pixels with NDWI &gt; 0.0 are treated as water-feature pixels for feature extraction. UNOSAT labels remain the independent validation source.</p>
       </div>
-      <p className="mt-3 text-sm text-slate-600">NDWI is computed during preprocessing and audited separately from UNOSAT validation labels.</p>
-      <div className="mt-3 h-3 rounded-full bg-gradient-to-r from-slate-400 to-blue-500" />
-      <div className="mt-1 flex justify-between text-xs text-slate-500"><span>Non-water</span><span>Water/flooded</span></div>
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <FigurePanel title="Green band" subtitle="Water reflects more green light." panel="green" />
+        <FigurePanel title="NIR band" subtitle="Water suppresses near-infrared response." panel="nir" />
+        <FigurePanel title="Continuous NDWI" subtitle="Brown/gray = low, cyan/blue = high." panel="ndwi" />
+        <FigurePanel title="Thresholded mask" subtitle="Blue pixels are NDWI > 0.0." panel="mask" />
+      </div>
+      <div className="grid gap-4 rounded-lg border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-950 md:grid-cols-[1fr_220px] md:items-center">
+        <div>
+          <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">Patch-level feature summary</p>
+          <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">The water fraction feature is the percentage of 64x64 patch pixels where NDWI exceeds the water threshold.</p>
+        </div>
+        <div>
+          <div className="flex items-center justify-between text-xs font-semibold text-slate-600 dark:text-slate-400">
+            <span>0%</span>
+            <span>{waterFraction}% water-feature pixels</span>
+          </div>
+          <div className="mt-2 h-3 rounded-full bg-slate-200 dark:bg-slate-800">
+            <div className="h-3 rounded-full bg-blue-500" style={{ width: `${waterFraction}%` }} />
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

@@ -135,9 +135,13 @@ export type ForecastDay = {
   flood_likelihood: number;
   risk_level: string;
   precipitation_mm: number;
-  soil_moisture: number;
+  soil_moisture: number | null;
   river_discharge: number | null;
   warning: boolean;
+  data_source: string;
+  forecast_status: string;
+  status_note?: string | null;
+  river_discharge_status?: string | null;
 };
 
 export type Region = {

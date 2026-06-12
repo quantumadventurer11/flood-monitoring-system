@@ -45,6 +45,10 @@ async def fetch_forecast(country: str, lat: float, lon: float, db: Session) -> l
     """Fetch Open-Meteo weather/flood data and compute five-day flood likelihood."""
 
     current_probability = _latest_prediction_probability(db, lat, lon)
+    today_rows = [(date.today() + timedelta(days=i)).isoformat() for i in range(5)]
+    flood = {}
+    river_failed = False
+    river_note = "Open-Meteo Flood API river discharge available."
     try:
         async with httpx.AsyncClient(timeout=12) as client:
             weather_response = await client.get(
@@ -61,45 +65,64 @@ async def fetch_forecast(country: str, lat: float, lon: float, db: Session) -> l
             weather_response.raise_for_status()
             weather = weather_response.json()
 
+        days = weather.get("daily", {}).get("time", [])
+        precip = weather.get("daily", {}).get("precipitation_sum", [])
+        soil_by_day = _daily_soil_means(weather)
+        weather_failed = False
+    except Exception as exc:
+        logger.warning("Open-Meteo weather forecast failed for %s; returning low-risk fallback: %s", country, exc)
+        days = today_rows
+        precip = [0.0] * 5
+        soil_by_day = {}
+        weather_failed = True
+
+    try:
+        async with httpx.AsyncClient(timeout=12) as client:
             flood_response = await client.get(
                 FLOOD_URL,
                 params={"latitude": lat, "longitude": lon, "daily": "river_discharge_mean", "forecast_days": 5},
             )
             flood_response.raise_for_status()
             flood = flood_response.json()
-
-        days = weather.get("daily", {}).get("time", [])
-        precip = weather.get("daily", {}).get("precipitation_sum", [])
-        soil_by_day = _daily_soil_means(weather)
-        discharge_by_day = dict(zip(flood.get("daily", {}).get("time", []), flood.get("daily", {}).get("river_discharge_mean", [])))
-        failed = False
     except Exception as exc:
-        logger.warning("Open-Meteo forecast failed for %s; returning low-risk fallback: %s", country, exc)
-        days = [(date.today() + timedelta(days=i)).isoformat() for i in range(5)]
-        precip = [0.0] * 5
-        soil_by_day = {}
-        discharge_by_day = {}
-        failed = True
+        logger.warning("Open-Meteo river discharge failed for %s; continuing with weather-only forecast: %s", country, exc)
+        river_failed = True
+        river_note = "Open-Meteo Flood API river discharge unavailable for this request; forecast uses weather inputs only."
+
+    daily_flood = flood.get("daily", {}) if isinstance(flood, dict) else {}
+    discharge_values = daily_flood.get("river_discharge_mean") or daily_flood.get("river_discharge") or []
+    discharge_by_day = dict(zip(daily_flood.get("time", []), discharge_values))
 
     rows: list[dict] = []
     for i in range(5):
-        day_str = str(days[i]) if i < len(days) else (date.today() + timedelta(days=i)).isoformat()
+        day_str = str(days[i]) if i < len(days) else today_rows[i]
         rain = float(precip[i] or 0.0) if i < len(precip) else 0.0
-        soil = float(soil_by_day.get(day_str, 0.0))
+        soil = float(soil_by_day[day_str]) if day_str in soil_by_day else None
         discharge = discharge_by_day.get(day_str)
-        if failed:
+        if weather_failed:
             likelihood = 0.1
         else:
-            likelihood = 0.5 * _normalize(rain, 0, 100) + 0.3 * _normalize(soil, 0, 0.5) + 0.2 * current_probability
+            soil_component = _normalize(soil, 0, 0.5) if soil is not None else 0.0
+            likelihood = 0.5 * _normalize(rain, 0, 100) + 0.3 * soil_component + 0.2 * current_probability
+        forecast_status = "fallback" if weather_failed else "weather_only" if river_failed else "ok"
+        status_note = (
+            "Open-Meteo weather forecast failed; using conservative fallback rows."
+            if weather_failed
+            else river_note
+        )
         rows.append(
             {
                 "date": datetime.fromisoformat(day_str).date(),
                 "flood_likelihood": round(float(np.clip(likelihood, 0.0, 1.0)), 4),
                 "risk_level": risk_level(float(likelihood)),
                 "precipitation_mm": round(rain, 2),
-                "soil_moisture": round(soil, 3),
+                "soil_moisture": round(soil, 3) if soil is not None else None,
                 "river_discharge": round(float(discharge), 2) if discharge is not None else None,
-                "warning": failed,
+                "warning": weather_failed or river_failed,
+                "data_source": "fallback" if weather_failed else "open_meteo_weather",
+                "forecast_status": forecast_status,
+                "status_note": status_note,
+                "river_discharge_status": "unavailable" if river_failed else "available" if discharge is not None else "missing_for_day",
             }
         )
     return rows

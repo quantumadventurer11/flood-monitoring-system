@@ -95,7 +95,7 @@ function Patch({ flooded, index }: { flooded: boolean; index: number }) {
 export default function PatchGrid() {
   return (
     <div>
-      <h3 className="mb-3 text-base font-semibold text-slate-800">Extracted image patches - flood vs. non-flood regions</h3>
+      <h3 className="mb-3 text-base font-semibold text-slate-800 dark:text-slate-100">Extracted image patches - flood vs. non-flood regions</h3>
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         {Array.from({ length: 16 }, (_, i) => <Patch key={i} flooded={i < 8} index={i} />)}
       </div>
