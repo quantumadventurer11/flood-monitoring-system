@@ -53,24 +53,26 @@ export default function CountrySelector({
   label?: string;
 }) {
   const options = regions?.length ? regions : countries;
+  const selectId = `${label.toLowerCase().replace(/[^a-z0-9]+/g, "-")}-select`;
   return (
     <label className="block">
-      <span className="mb-1 block text-sm font-medium text-slate-700">{label}</span>
-      <input
-        className="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm"
-        list="country-options"
+      <span className="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-300">{label}</span>
+      <select
+        id={selectId}
+        aria-label={label}
+        className="form-control"
         value={value.country}
         onChange={(event) => {
-          const match = options.find((item) => item.country.toLowerCase() === event.target.value.toLowerCase());
-          onChange(match ?? { ...value, country: event.target.value });
+          const match = options.find((item) => item.country === event.target.value);
+          if (match) onChange(match);
         }}
-        placeholder="Search any flood-prone country"
-      />
-      <datalist id="country-options">
+      >
         {options.map((item) => (
-          <option key={item.country} value={item.country} />
+          <option key={item.country} value={item.country}>
+            {countryFlag(item.country)} {item.country}
+          </option>
         ))}
-      </datalist>
+      </select>
     </label>
   );
 }

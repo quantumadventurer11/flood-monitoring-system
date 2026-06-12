@@ -20,10 +20,46 @@ body {
   @apply bg-slate-50 text-slate-900 transition-colors duration-300 dark:bg-slate-950 dark:text-slate-100;
 }
 
+.form-control {
+  @apply w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-200 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:placeholder:text-slate-500 dark:focus:border-cyan-400 dark:focus:ring-cyan-950;
+}
+
+.dark input[type="date"].form-control,
+.dark input[type="number"].form-control,
+.dark input[type="text"].form-control,
+.dark select.form-control {
+  background-color: #020617;
+  color: #f1f5f9;
+  color-scheme: dark;
+}
+
 .leaflet-container {
-  height: 100%;
-  min-height: 360px;
   border-radius: 8px;
+}
+
+.dark .leaflet-popup-content-wrapper,
+.dark .leaflet-popup-tip {
+  background: #0f172a;
+  color: #e2e8f0;
+}
+
+.dark .leaflet-popup-content .text-slate-900,
+.dark .leaflet-popup-content .text-slate-800 {
+  color: #f8fafc;
+}
+
+.dark .leaflet-popup-content .text-slate-600,
+.dark .leaflet-popup-content .text-slate-500 {
+  color: #cbd5e1;
+}
+
+.dark .leaflet-popup-content .bg-white,
+.dark .leaflet-popup-content .bg-slate-50 {
+  background: #1e293b;
+}
+
+.dark .leaflet-popup-content .border-slate-200 {
+  border-color: #334155;
 }
 
 .card {

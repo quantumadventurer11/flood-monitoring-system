@@ -1,4 +1,5 @@
-import { Activity, AlertTriangle, CloudRain, Compass, Gauge, Globe2, Info, MapPin, Satellite, ShieldCheck } from "lucide-react";
+import { Activity, AlertTriangle, ChevronDown, CloudRain, Compass, Gauge, Globe2, Info, MapPin, RefreshCw, Satellite, ShieldCheck } from "lucide-react";
+import type React from "react";
 import { useEffect, useMemo, useState } from "react";
 import { api, type BatchPrediction, type Event, type Hotspot, type ModelStatus, type Prediction, type Region, type ValidationScenario } from "../api/client";
 import AlertBanner from "../components/AlertBanner";
@@ -34,6 +35,45 @@ function riskSummary(risk: string) {
   return "Current signals look low, but conditions can change quickly after heavy rain.";
 }
 
+function CollapsiblePanel({
+  id,
+  title,
+  icon,
+  open,
+  onToggle,
+  children,
+}: {
+  id: string;
+  title: string;
+  icon?: React.ReactNode;
+  open: boolean;
+  onToggle: (id: string) => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <section className="card alive-card soft-panel overflow-hidden">
+      <button
+        aria-controls={`${id}-panel`}
+        aria-expanded={open}
+        className="interactive-button flex w-full items-center justify-between gap-3 px-4 py-3 text-left"
+        onClick={() => onToggle(id)}
+        type="button"
+      >
+        <span className="flex min-w-0 items-center gap-2 font-semibold text-slate-800 dark:text-white">
+          {icon}
+          <span className="truncate">{title}</span>
+        </span>
+        <ChevronDown size={18} className={`shrink-0 text-slate-500 transition-transform ${open ? "rotate-180" : ""}`} />
+      </button>
+      {open && (
+        <div id={`${id}-panel`} className="border-t border-slate-100 px-4 py-3 dark:border-slate-800">
+          {children}
+        </div>
+      )}
+    </section>
+  );
+}
+
 export default function Dashboard({ onOpenForecast }: { onOpenForecast: (place: SelectedPlace) => void }) {
   const [regions, setRegions] = useState<Region[]>([]);
   const [events, setEvents] = useState<Event[]>([]);
@@ -46,6 +86,18 @@ export default function Dashboard({ onOpenForecast }: { onOpenForecast: (place: 
   const [modelStatus, setModelStatus] = useState<ModelStatus | null>(null);
   const [modelStatusError, setModelStatusError] = useState<string | null>(null);
   const [statusMessage, setStatusMessage] = useState("Satellite terrain is visible underneath the country colors.");
+  const [focusNonce, setFocusNonce] = useState(0);
+  const [openPanels, setOpenPanels] = useState<Record<string, boolean>>({
+    map: true,
+    model: true,
+    risk: true,
+    gauge: false,
+    evidence: false,
+    certainty: false,
+    meaning: false,
+    next: false,
+    events: false,
+  });
 
   useEffect(() => {
     const load = async () => {
@@ -72,6 +124,26 @@ export default function Dashboard({ onOpenForecast }: { onOpenForecast: (place: 
   const handlePrediction = (result: CountryResult) => {
     setSelected({ country: result.country, lat: result.lat, lon: result.lon });
     setPrediction(result);
+  };
+
+  const togglePanel = (id: string) => {
+    setOpenPanels((current) => ({ ...current, [id]: !current[id] }));
+  };
+
+  const resetMapView = () => {
+    setFocusNonce((value) => value + 1);
+  };
+
+  const fitBangladeshScenario = () => {
+    const markers = scenario?.ground_truth_hotspots ?? [];
+    if (!markers.length) {
+      resetMapView();
+      return;
+    }
+    const lat = markers.reduce((sum, item) => sum + item.lat, 0) / markers.length;
+    const lon = markers.reduce((sum, item) => sum + item.lon, 0) / markers.length;
+    setSelected({ country: "Bangladesh", lat, lon });
+    setFocusNonce((value) => value + 1);
   };
 
   const runBatch = async () => {
@@ -135,15 +207,14 @@ export default function Dashboard({ onOpenForecast }: { onOpenForecast: (place: 
   const statusTone = batchLoading ? "border-blue-200 bg-blue-50 text-blue-900 dark:border-blue-800 dark:bg-blue-950/40 dark:text-blue-100" : scenario ? "border-cyan-200 bg-cyan-50 text-cyan-900 dark:border-cyan-800 dark:bg-cyan-950/40 dark:text-cyan-100" : "border-slate-200 bg-slate-50 text-slate-700 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-300";
 
   return (
-    <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_380px]">
-      <section className="card soft-panel min-h-[620px] overflow-hidden p-3">
-        <div className="mb-3 flex flex-col gap-3 rounded-lg bg-slate-50 p-4 dark:bg-slate-950/60 md:flex-row md:items-center md:justify-between">
-          <div>
+    <div className="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1fr)_360px]">
+      <section className="card soft-panel min-w-0 overflow-hidden p-3">
+        <div className="sticky top-2 z-[500] mb-3 flex flex-col gap-3 rounded-lg border border-slate-200 bg-slate-50/95 p-3 backdrop-blur dark:border-slate-800 dark:bg-slate-950/90 lg:flex-row lg:items-center lg:justify-between">
+          <div className="min-w-0">
             <p className="text-sm font-semibold uppercase text-blue-700 dark:text-cyan-300">Interactive flood map</p>
-            <h2 className="mt-1 text-2xl font-bold text-slate-900 dark:text-white">Click a country to run a fresh risk check</h2>
-            <p className="mt-1 max-w-2xl text-sm text-slate-600 dark:text-slate-400">Satellite terrain is shown underneath. Country colors show model risk, and markers show specific flood-region coordinates.</p>
+            <h2 className="mt-1 text-xl font-bold text-slate-900 dark:text-white sm:text-2xl">Click a country to run a fresh risk check</h2>
           </div>
-          <div className="flex flex-col gap-2 sm:flex-row">
+          <div className="flex flex-wrap gap-2">
             <button
               className="interactive-button flex items-center justify-center gap-2 rounded-md bg-slate-900 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-white dark:text-slate-950"
               onClick={runBatch}
@@ -160,29 +231,45 @@ export default function Dashboard({ onOpenForecast }: { onOpenForecast: (place: 
               <MapPin size={16} />
               {scenarioLoading ? "Loading test..." : "Bangladesh 2024 test"}
             </button>
+            <button
+              className="interactive-button flex items-center justify-center gap-2 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-800 shadow-sm hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+              onClick={scenario ? fitBangladeshScenario : resetMapView}
+              type="button"
+            >
+              <RefreshCw size={16} />
+              {scenario ? "Fit Bangladesh scenario" : "Reset view"}
+            </button>
           </div>
         </div>
-        <div className="map-overlay mb-3 grid gap-2 rounded-lg border border-slate-200 bg-white/95 p-3 dark:border-slate-800 dark:bg-slate-900/95 md:grid-cols-[1fr_auto] md:items-center">
+        <div className="map-overlay mb-3 grid min-w-0 gap-2 rounded-lg border border-slate-200 bg-white/95 p-3 dark:border-slate-800 dark:bg-slate-900/95 lg:grid-cols-[1fr_auto] lg:items-center">
           <div className="flex flex-wrap items-center gap-2 text-sm">
             <span className="font-semibold text-slate-900 dark:text-white">{countryFlag(selected.country)} {selected.country}</span>
             <span className={`rounded px-2 py-1 text-xs font-bold text-white ${prediction.risk_level === "High" ? "bg-red-600" : prediction.risk_level === "Medium" ? "bg-amber-600" : "bg-green-600"}`}>{prediction.risk_level}</span>
-            <span className="text-slate-500 dark:text-slate-400">{probabilityPct}% likelihood</span>
-            <span className="text-slate-500 dark:text-slate-400">{confidencePct}% confidence</span>
-            <span className="text-slate-500 dark:text-slate-400">{prediction.data_source}</span>
+            <span className="rounded bg-slate-100 px-2 py-1 text-slate-600 dark:bg-slate-800 dark:text-slate-300">{probabilityPct}% likelihood</span>
+            <span className="rounded bg-slate-100 px-2 py-1 text-slate-600 dark:bg-slate-800 dark:text-slate-300">{confidencePct}% confidence</span>
+            <span className="rounded bg-slate-100 px-2 py-1 capitalize text-slate-600 dark:bg-slate-800 dark:text-slate-300">{formatMode(prediction.operational_mode)}</span>
+            <span className={`rounded px-2 py-1 font-semibold ${prediction.publishable ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-200" : "bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-200"}`}>
+              {prediction.publishable ? "Publishable" : "Not publishable"}
+            </span>
           </div>
           <div className="flex flex-wrap gap-2 text-xs">
             <span className="rounded-full border border-cyan-200 bg-cyan-50 px-2 py-1 font-semibold text-cyan-800 dark:border-cyan-800 dark:bg-cyan-950/40 dark:text-cyan-100">UNOSAT flood coordinate</span>
             <span className="rounded-full border border-red-200 bg-red-50 px-2 py-1 font-semibold text-red-800 dark:border-red-800 dark:bg-red-950/40 dark:text-red-100">Model hotspot</span>
           </div>
         </div>
-        <FloodMap regions={regions} selected={selected} onSelect={setSelected} onPrediction={handlePrediction} externalResults={batchResults} hotspots={mapHotspots} />
+        <FloodMap
+          regions={regions}
+          selected={selected}
+          onSelect={setSelected}
+          onPrediction={handlePrediction}
+          externalResults={batchResults}
+          hotspots={mapHotspots}
+          focusNonce={focusNonce}
+          className="h-[clamp(300px,calc(100vh-410px),540px)] min-h-0"
+        />
       </section>
-      <aside className="space-y-4">
-        <div className={`card alive-card soft-panel p-4 ${batchLoading ? "status-sweep" : ""}`}>
-          <div className="mb-3 flex items-center gap-2">
-            <Satellite size={17} className={`${batchLoading ? "gentle-pulse" : ""} text-blue-700 dark:text-cyan-300`} />
-            <h3 className="font-semibold text-slate-800 dark:text-white">Map Mode</h3>
-          </div>
+      <aside className="min-w-0 space-y-3 xl:max-h-[calc(100vh-132px)] xl:overflow-y-auto xl:pr-1">
+        <CollapsiblePanel id="map" title="Map Mode" icon={<Satellite size={17} className={`${batchLoading ? "gentle-pulse" : ""} text-blue-700 dark:text-cyan-300`} />} open={openPanels.map} onToggle={togglePanel}>
           <p className={`relative rounded border px-3 py-2 text-sm ${statusTone}`}>{statusMessage}</p>
           {batch && (
             <div className="mt-3 grid grid-cols-4 gap-2 text-center text-xs">
@@ -197,12 +284,8 @@ export default function Dashboard({ onOpenForecast }: { onOpenForecast: (place: 
               {scenario.title}: blue markers are local UNOSAT-derived flood coordinates. Click any marker to see its class, source details, and data fields.
             </p>
           )}
-        </div>
-        <div className={`card alive-card soft-panel p-4 ${backendFallback ? "border-amber-200 dark:border-amber-800" : "border-emerald-200 dark:border-emerald-800"}`}>
-          <div className="mb-3 flex items-center gap-2">
-            {backendFallback ? <AlertTriangle size={17} className="text-amber-700 dark:text-amber-300" /> : <ShieldCheck size={17} className="text-emerald-700 dark:text-emerald-300" />}
-            <h3 className="font-semibold text-slate-800 dark:text-white">Model Status</h3>
-          </div>
+        </CollapsiblePanel>
+        <CollapsiblePanel id="model" title="Model Status" icon={backendFallback ? <AlertTriangle size={17} className="text-amber-700 dark:text-amber-300" /> : <ShieldCheck size={17} className="text-emerald-700 dark:text-emerald-300" />} open={openPanels.model} onToggle={togglePanel}>
           <div className="grid gap-2 text-sm">
             <div className="flex items-center justify-between gap-3 rounded border border-slate-100 px-3 py-2 dark:border-slate-800">
               <span className="text-slate-500 dark:text-slate-400">Backend</span>
@@ -220,8 +303,9 @@ export default function Dashboard({ onOpenForecast }: { onOpenForecast: (place: 
           <p className={`mt-3 rounded border px-3 py-2 text-xs ${backendFallback ? "border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200" : "border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-200"}`}>
             {modelStatusError ?? modelStatus?.note ?? "Checking hosted model readiness."}
           </p>
-        </div>
-        <div className="card risk-glow soft-panel alive-card overflow-hidden">
+        </CollapsiblePanel>
+        <CollapsiblePanel id="risk" title="Current Risk" open={openPanels.risk} onToggle={togglePanel}>
+        <div className="risk-glow overflow-hidden rounded-md border border-slate-100 dark:border-slate-800">
           <div className={`h-2 ${prediction.risk_level === "High" ? "bg-red-600" : prediction.risk_level === "Medium" ? "bg-amber-500" : "bg-green-600"}`} />
           <div className="p-4">
             <p className="text-sm text-slate-500 dark:text-slate-400">Current Risk</p>
@@ -233,12 +317,11 @@ export default function Dashboard({ onOpenForecast }: { onOpenForecast: (place: 
             <p className="mt-3 text-xs text-slate-500 dark:text-slate-400">Source: {isFallback ? "rainfall-based proxy" : "satellite scene"} · {formatMode(prediction.operational_mode)}</p>
           </div>
         </div>
-        <FloodGauge probability={prediction.flood_probability} />
-        <div className="card alive-card soft-panel p-4">
-          <div className="mb-3 flex items-center gap-2">
-            <CloudRain size={17} className="text-blue-700 dark:text-cyan-300" />
-            <h3 className="font-semibold text-slate-800 dark:text-white">Why this result?</h3>
-          </div>
+        </CollapsiblePanel>
+        <CollapsiblePanel id="gauge" title="Probability Gauge" icon={<Gauge size={17} className="text-amber-700 dark:text-amber-300" />} open={openPanels.gauge} onToggle={togglePanel}>
+          <FloodGauge probability={prediction.flood_probability} compact framed={false} />
+        </CollapsiblePanel>
+        <CollapsiblePanel id="evidence" title="Why this result?" icon={<CloudRain size={17} className="text-blue-700 dark:text-cyan-300" />} open={openPanels.evidence} onToggle={togglePanel}>
           <dl className="grid grid-cols-2 gap-3 text-sm">
             <div className="alive-card rounded border border-slate-100 p-2 dark:border-slate-800">
               <dt className="text-xs text-slate-500 dark:text-slate-400">Rain in 7 days</dt>
@@ -258,12 +341,8 @@ export default function Dashboard({ onOpenForecast }: { onOpenForecast: (place: 
             </div>
           </dl>
           <p className="mt-3 text-xs text-slate-500 dark:text-slate-400">These indicators are separate from independent ground-truth validation.</p>
-        </div>
-        <div className="card alive-card soft-panel p-4">
-          <div className="mb-3 flex items-center gap-2">
-            <Gauge size={17} className="text-amber-700 dark:text-amber-300" />
-            <h3 className="font-semibold text-slate-800 dark:text-white">How sure is it?</h3>
-          </div>
+        </CollapsiblePanel>
+        <CollapsiblePanel id="certainty" title="How sure is it?" icon={<Gauge size={17} className="text-amber-700 dark:text-amber-300" />} open={openPanels.certainty} onToggle={togglePanel}>
           <div className="space-y-3 text-sm">
             <div>
               <div className="flex justify-between text-xs text-slate-500 dark:text-slate-400">
@@ -287,30 +366,21 @@ export default function Dashboard({ onOpenForecast }: { onOpenForecast: (place: 
               {publishablePrediction ? "Satellite-scene predictions should be exported and compared with UNOSAT labels before citation." : "Fallback forecasts are triage-only until Sentinel/Copernicus patch scores are validated against ground truth."}
             </p>
           </div>
-        </div>
-        <div className="card alive-card soft-panel p-4">
-          <div className="mb-2 flex items-center gap-2">
-            <Info size={17} className="text-slate-700 dark:text-slate-300" />
-            <h3 className="font-semibold text-slate-800 dark:text-white">What does this mean?</h3>
-          </div>
+        </CollapsiblePanel>
+        <CollapsiblePanel id="meaning" title="What does this mean?" icon={<Info size={17} className="text-slate-700 dark:text-slate-300" />} open={openPanels.meaning} onToggle={togglePanel}>
           <p className="text-sm text-slate-700 dark:text-slate-300">{riskSummary(prediction.risk_level)}</p>
-        </div>
-        <div className="card alive-card soft-panel p-4">
-          <div className="mb-2 flex items-center gap-2">
-            <Compass size={17} className="text-blue-700 dark:text-cyan-300" />
-            <h3 className="font-semibold text-slate-800 dark:text-white">What to do next</h3>
-          </div>
+        </CollapsiblePanel>
+        <CollapsiblePanel id="next" title="What to do next" icon={<Compass size={17} className="text-blue-700 dark:text-cyan-300" />} open={openPanels.next} onToggle={togglePanel}>
           <p className="mb-3 text-sm text-slate-700 dark:text-slate-300">Run the 5-day forecast for the selected place, then compare with official local warnings before acting.</p>
           <button className="interactive-button flex w-full items-center justify-center gap-2 rounded-md bg-flood px-4 py-2 font-semibold text-white shadow-sm hover:bg-blue-700" onClick={() => onOpenForecast(selected)}>
           <Activity size={17} />
           Run 5-Day Forecast
           </button>
-        </div>
+        </CollapsiblePanel>
         <AlertBanner risk={prediction.risk_level} message={`${selected.country}: ${prediction.risk_level} flood risk at ${probabilityPct}% likelihood.`} />
-        <div className="card alive-card soft-panel p-4">
-          <h3 className="mb-3 font-semibold text-slate-900 dark:text-white">Recent Events</h3>
+        <CollapsiblePanel id="events" title="Recent Events" open={openPanels.events} onToggle={togglePanel}>
           <EventsTable rows={events} />
-        </div>
+        </CollapsiblePanel>
       </aside>
     </div>
   );

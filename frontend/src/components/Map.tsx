@@ -14,11 +14,11 @@ const riskColor = (risk: string) => (risk === "High" ? "#dc2626" : risk === "Med
 const baselineColor = (risk: number) => (risk > 0.6 ? "#94a3b8" : risk >= 0.3 ? "#cbd5e1" : "#e2e8f0");
 const formatMode = (mode: string) => mode.replace(/_/g, " ");
 
-function FlyTo({ lat, lon }: { lat: number; lon: number }) {
+function FlyTo({ lat, lon, focusNonce = 0 }: { lat: number; lon: number; focusNonce?: number }) {
   const map = useMap();
   useEffect(() => {
     map.flyTo([lat, lon], 4);
-  }, [lat, lon, map]);
+  }, [lat, lon, focusNonce, map]);
   return null;
 }
 
@@ -72,6 +72,8 @@ export default function FloodMap({
   allowPointSelect = false,
   externalResults = {},
   hotspots = [],
+  className = "h-full min-h-[420px]",
+  focusNonce = 0,
 }: {
   regions: Region[];
   selected: SelectedPlace;
@@ -80,6 +82,8 @@ export default function FloodMap({
   allowPointSelect?: boolean;
   externalResults?: Record<string, CountryResult>;
   hotspots?: MapHotspot[];
+  className?: string;
+  focusNonce?: number;
 }) {
   const [geoJson, setGeoJson] = useState<any | null>(null);
   const [loadingCountry, setLoadingCountry] = useState<string | null>(null);
@@ -94,12 +98,12 @@ export default function FloodMap({
   const center: LatLngExpression = [selected.lat, selected.lon];
 
   return (
-    <MapContainer center={center} zoom={3} scrollWheelZoom className="h-full min-h-[420px]">
+    <MapContainer center={center} zoom={3} scrollWheelZoom className={`${className} w-full`}>
       <TileLayer
         attribution="Tiles &copy; Esri, Maxar, Earthstar Geographics, and the GIS User Community"
         url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
       />
-      <FlyTo lat={selected.lat} lon={selected.lon} />
+      <FlyTo lat={selected.lat} lon={selected.lon} focusNonce={focusNonce} />
       <ClickPoint enabled={allowPointSelect} onPointSelect={(lat, lon) => onSelect({ country: "Custom point", lat, lon })} />
       {geoJson && (
         <GeoJSON
