@@ -29,7 +29,7 @@ Vercel is the right fit for the React/Vite frontend. The FastAPI backend should 
 | --- | --- | --- |
 | `DATABASE_URL` | Yes | Render injects this from `flood-monitoring-system-db`. |
 | `ALLOWED_ORIGINS` | Yes | Production Vercel URL, for example `https://your-project.vercel.app`. |
-| `CORS_ORIGIN_REGEX` | Optional | Use `https://.*\.vercel\.app` only if preview deployments need API access. |
+| `CORS_ORIGIN_REGEX` | Optional | Defaults to `https://.*\.vercel\.app`; override only for stricter custom-domain deployments. |
 | `COPERNICUS_USER` | Optional | Copernicus Data Space username. |
 | `COPERNICUS_PASSWORD` | Optional | Copernicus Data Space password. |
 
@@ -141,5 +141,5 @@ Then open the Vercel URL and check:
 - Keep backend secrets only in Render.
 - Keep Vercel environment variables frontend-only.
 - Set `ALLOWED_ORIGINS` to the production Vercel domain.
-- Set `CORS_ORIGIN_REGEX` only if the team needs Vercel preview deployments.
+- Override `CORS_ORIGIN_REGEX` only if the team wants to restrict API access to a custom domain instead of Vercel deployment domains.
 - Stop localtunnel and the public demo server after migration; keep them as local development fallback only.
