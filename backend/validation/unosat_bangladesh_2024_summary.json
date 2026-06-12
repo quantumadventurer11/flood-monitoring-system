@@ -1,0 +1,32 @@
+{
+  "source": {
+    "name": "UNOSAT FL20240825BGD",
+    "product_id": "3954",
+    "title": "Satellite detected water extents between 28 August & 4 September 2024 in Bangladesh",
+    "source_url": "https://unosat.org/products/3954",
+    "shapefile_url": "https://unosat.org/static/unosat_filesystem/3954/FL20240825BGD_SHP.zip",
+    "event_code": "FL20240825BGD",
+    "license": "Creative Commons Attribution Share-Alike (CC BY-SA)",
+    "sensor": "Sentinel-1",
+    "acquisition_window": "2024-08-18 to 2024-09-04",
+    "published": "2024-09-08",
+    "reported_flooded_area_km2": 8100,
+    "reported_receded_area_km2": 8700,
+    "reported_exposed_population": 6200000,
+    "bbox": [
+      88.00862798600008,
+      20.590609348000044,
+      92.68030687500004,
+      26.634513010000035
+    ],
+    "caveat": "Preliminary satellite analysis; not field validated. Radar flood analysis can underestimate water in built-up or densely vegetated areas."
+  },
+  "ground_truth": {
+    "patches": 1024,
+    "flooded_patches": 32,
+    "flooded_percent": 3.12,
+    "grid": "32x32 patch-centroid labels over the UNOSAT analysed extent"
+  },
+  "metric_status": "scores_required",
+  "metric_note": "Provide real patch-level NDWI water fractions and model probabilities with --scores-csv to compute publishable independent metrics."
+}

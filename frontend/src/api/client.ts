@@ -5,6 +5,52 @@ export type PaperResults = {
   model_metrics: Array<{ rank: number; model: string; roc_auc: number; accuracy: string; precision: string; recall: string; f1: number; training_time_s?: number }>;
   ablation_results: Array<{ configuration: string; features: number; roc_auc: number; accuracy: number; precision: number; recall: number; f1: number; time_s: number }>;
   confusion_matrices: Array<{ model: string; test_patches: number; missed_floods: number; false_positives: number }>;
+  metric_audit: Array<{ item: string; table_a1_value?: number; resolved_value?: number; status: string; note: string }>;
+  independent_validation: {
+    source: {
+      name: string;
+      product_id: string;
+      title: string;
+      source_url: string;
+      shapefile_url: string;
+      event_code: string;
+      sensor: string;
+      acquisition_window: string;
+      published: string;
+      reported_flooded_area_km2: number;
+      reported_receded_area_km2: number;
+      reported_exposed_population: number;
+      caveat: string;
+    };
+    ground_truth: { patches: number; flooded_patches: number; flooded_percent: number; grid: string };
+    metric_status: string;
+    metric_note: string;
+    operational_fallback_audit?: {
+      metric_status: string;
+      sample: string;
+      model_probability_metrics: {
+        patches: number;
+        roc_auc: number;
+        accuracy: number;
+        precision: number;
+        recall: number;
+        f1: number;
+        confusion_matrix: { tn: number; fp: number; fn: number; tp: number };
+      };
+      verdict: string;
+    };
+  };
+  modularity_evidence: string[];
+  methodology_references: Array<{
+    key: string;
+    title: string;
+    authors: string;
+    year: number;
+    venue: string;
+    doi: string;
+    citation: string;
+    relevance: string;
+  }>;
   sensitivity_analysis: Record<string, string>;
   key_features: Array<{ rank: number; feature: string; description: string }>;
   paper_notes: string[];
@@ -17,6 +63,56 @@ export type Prediction = {
   confidence: number;
   data_source: string;
   date: string;
+  validation_status: string;
+  validation_note?: string | null;
+  rain_7d_mm?: number | null;
+  max_daily_rain_mm?: number | null;
+  water_signal?: number | null;
+  hotspots: Hotspot[];
+};
+
+export type Hotspot = {
+  lat: number;
+  lon: number;
+  probability: number;
+  risk_level: string;
+  source: string;
+  flood_class?: string | null;
+  details?: Record<string, string | number | null>;
+  data?: Record<string, string | number | null>;
+};
+
+export type BatchPredictionItem = {
+  country: string;
+  lat: number;
+  lon: number;
+  status: string;
+  error?: string | null;
+  prediction?: Prediction | null;
+};
+
+export type BatchPrediction = {
+  date: string;
+  scope: string;
+  compute_mode: string;
+  total: number;
+  completed: number;
+  failed: number;
+  high: number;
+  medium: number;
+  low: number;
+  results: BatchPredictionItem[];
+};
+
+export type ValidationScenario = {
+  key: string;
+  title: string;
+  source: { event_code: string; name: string; title: string; source_url: string; acquisition_window: string; caveat: string };
+  event_date: string;
+  note: string;
+  ground_truth_hotspots: Hotspot[];
+  model_hotspots: Hotspot[];
+  prediction: Prediction;
 };
 
 export type ForecastDay = {
@@ -75,6 +171,9 @@ export const api = {
   regions: () => request<Region[]>("/regions"),
   predict: (body: { country: string; lat: number; lon: number; date: string }) =>
     request<Prediction>("/predict", { method: "POST", body: JSON.stringify(body) }),
+  predictRegions: (date: string) =>
+    request<BatchPrediction>("/predict/batch/regions", { method: "POST", body: JSON.stringify({ date }) }),
+  bangladeshScenario: () => request<ValidationScenario>("/validation/scenarios/bangladesh-2024"),
   forecast: (body: { country: string; lat: number; lon: number }) =>
     request<ForecastDay[]>("/forecast", { method: "POST", body: JSON.stringify(body) }),
 };

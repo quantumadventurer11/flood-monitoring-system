@@ -23,6 +23,17 @@ class PredictRequest(BaseModel):
     date: date
 
 
+class HotspotOut(BaseModel):
+    lat: float
+    lon: float
+    probability: float
+    risk_level: str
+    source: str
+    flood_class: str | None = None
+    details: dict[str, str | int | float | None] = {}
+    data: dict[str, str | int | float | None] = {}
+
+
 class PredictResponse(BaseModel):
     flood_probability: float
     risk_level: str
@@ -30,6 +41,49 @@ class PredictResponse(BaseModel):
     confidence: float
     data_source: str
     date: date
+    validation_status: str = "not_independently_validated"
+    validation_note: str | None = None
+    rain_7d_mm: float | None = None
+    max_daily_rain_mm: float | None = None
+    water_signal: float | None = None
+    hotspots: list[HotspotOut] = []
+
+
+class BatchPredictionRequest(BaseModel):
+    date: date
+
+
+class BatchPredictionItem(BaseModel):
+    country: str
+    lat: float
+    lon: float
+    status: str
+    error: str | None = None
+    prediction: PredictResponse | None = None
+
+
+class BatchPredictionResponse(BaseModel):
+    date: date
+    scope: str
+    compute_mode: str
+    total: int
+    completed: int
+    failed: int
+    high: int
+    medium: int
+    low: int
+    results: list[BatchPredictionItem]
+
+
+class ValidationScenarioResponse(BaseModel):
+    key: str
+    title: str
+    source: dict
+    event_date: date
+    note: str
+    ground_truth_hotspots: list[HotspotOut]
+    model_hotspots: list[HotspotOut]
+    prediction: PredictResponse
 
 
 class ForecastRequest(BaseModel):

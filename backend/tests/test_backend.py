@@ -3,9 +3,12 @@ from datetime import date
 import numpy as np
 from fastapi.testclient import TestClient
 
+from app.api.routes.predict import patch_hotspots, summarize_scene_prediction
 from app.main import app
 from app.services.classifier import generate_synthetic_training_data, train
+from app.services.independent_validation import PatchLabel, summarize_validation
 from app.services.preprocessing import compute_indices, extract_patch_features, label_patch, preprocess_scene
+from app.services.satellite import _surface_water_prior
 from seed_db import seed
 
 
@@ -18,6 +21,15 @@ def test_paper_results_exact_values():
     assert data["dataset_stats"][0]["total_patches"] == 2630
     assert data["model_metrics"][0]["model"] == "XGBoost"
     assert data["model_metrics"][0]["f1"] == 0.923
+    assert data["independent_validation"]["source"]["event_code"] == "FL20240825BGD"
+    assert data["independent_validation"]["ground_truth"]["flooded_percent"] == 3.12
+    assert data["metric_audit"][0]["item"] == "SVM (RBF) ROC-AUC"
+    assert len(data["modularity_evidence"]) >= 3
+    reference = data["methodology_references"][0]
+    assert reference["key"] == "tang_2023_forecasting_pattern_recognition"
+    assert reference["doi"] == "10.1016/j.ejrh.2023.101406"
+    assert "Tang, Y." in reference["citation"]
+    assert "Xin'anjiang" in reference["relevance"]
 
 
 def test_regions_global_list():
@@ -26,6 +38,82 @@ def test_regions_global_list():
     rows = response.json()
     assert len(rows) >= 27
     assert {"country", "lat", "lon", "risk_baseline"}.issubset(rows[0].keys())
+
+
+def test_scene_prediction_aggregation_resists_single_patch_spikes():
+    dry_scene = summarize_scene_prediction([0.01] * 16)
+    mixed_scene = summarize_scene_prediction([0.01] * 11 + [0.99] * 5)
+
+    assert dry_scene["risk_level"] == "Low"
+    assert dry_scene["classification"] == "no_flood"
+    assert mixed_scene["risk_level"] == "Medium"
+    assert mixed_scene["classification"] == "no_flood"
+    assert mixed_scene["flood_probability"] < 0.5
+
+
+def test_patch_hotspots_stay_inside_scene_bbox():
+    hotspots = patch_hotspots([0.1, 0.8, 0.2, 0.7], 23.685, 90.3563, 50.0, limit=2)
+
+    assert len(hotspots) == 2
+    assert hotspots[0]["probability"] == 0.8
+    assert all(23.2 < item["lat"] < 24.2 for item in hotspots)
+    assert all(89.8 < item["lon"] < 90.9 for item in hotspots)
+
+
+def test_batch_regions_contract(monkeypatch):
+    from app.api.routes import predict as predict_route
+
+    async def fake_compute(payload):
+        risk = "High" if payload.country == "Bangladesh" else "Low"
+        return {
+            "flood_probability": 0.8 if risk == "High" else 0.1,
+            "risk_level": risk,
+            "classification": "flood" if risk == "High" else "no_flood",
+            "confidence": 0.65,
+            "data_source": "fallback",
+            "date": payload.date,
+            "validation_status": "fallback_not_ground_truth_validated",
+            "validation_note": "test",
+            "rain_7d_mm": 10.0,
+            "max_daily_rain_mm": 4.0,
+            "water_signal": 0.2,
+            "hotspots": [],
+        }
+
+    monkeypatch.setattr(predict_route, "compute_prediction", fake_compute)
+    response = client.post("/predict/batch/regions", json={"date": "2024-09-04"})
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["scope"] == "seeded_monitoring_regions"
+    assert data["compute_mode"] == "classical_async_bounded_concurrency"
+    assert data["total"] >= 27
+    assert data["completed"] == data["total"]
+    assert data["failed"] == 0
+    assert data["high"] >= 1
+    assert {"country", "lat", "lon", "status", "prediction"}.issubset(data["results"][0].keys())
+
+
+def test_bangladesh_2024_validation_scenario(monkeypatch):
+    from app.api.routes import validation as validation_route
+
+    monkeypatch.setattr(validation_route, "_unosat_labels", lambda: [PatchLabel("UNOSAT-2024-00-00", 90.1, 23.6, 1)])
+    response = client.get("/validation/scenarios/bangladesh-2024")
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["source"]["event_code"] == "FL20240825BGD"
+    assert data["ground_truth_hotspots"][0]["lat"] == 23.6
+    assert data["ground_truth_hotspots"][0]["flood_class"] == "Satellite-detected flood extent"
+    assert data["ground_truth_hotspots"][0]["details"]["patch_id"] == "UNOSAT-2024-00-00"
+    assert data["ground_truth_hotspots"][0]["data"]["source_product_id"] == "3954"
+    assert data["model_hotspots"] == []
+    assert data["prediction"]["data_source"] == "local_unosat_ground_truth"
+
+
+def test_surface_water_prior_has_arid_controls():
+    assert _surface_water_prior(23.685, 90.3563) > _surface_water_prior(23.0, 12.0)
+    assert _surface_water_prior(-23.0, -70.0) == 0.0
 
 
 def test_feature_extraction_length_and_label():
@@ -79,3 +167,22 @@ def test_train_predict_small_model(tmp_path, monkeypatch):
     assert classifier_module.MODEL_PATH.exists()
     proba = model.predict_proba(X[:1])[0][1]
     assert 0.0 <= float(proba) <= 1.0
+
+
+def test_independent_validation_summary_with_scores():
+    labels = [
+        PatchLabel("UNOSAT-2024-00-00", 90.0, 23.0, 0),
+        PatchLabel("UNOSAT-2024-00-01", 90.1, 23.0, 1),
+        PatchLabel("UNOSAT-2024-00-02", 90.2, 23.0, 1),
+        PatchLabel("UNOSAT-2024-00-03", 90.3, 23.0, 0),
+    ]
+    scores = {
+        "UNOSAT-2024-00-00": {"ndwi_water_fraction": 0.01, "model_probability": 0.2},
+        "UNOSAT-2024-00-01": {"ndwi_water_fraction": 0.20, "model_probability": 0.9},
+        "UNOSAT-2024-00-02": {"ndwi_water_fraction": 0.12, "model_probability": 0.8},
+        "UNOSAT-2024-00-03": {"ndwi_water_fraction": 0.02, "model_probability": 0.1},
+    }
+    summary = summarize_validation(labels, scores)
+    assert summary["metric_status"] == "computed"
+    assert summary["ndwi_threshold_metrics"]["roc_auc"] == 1.0
+    assert summary["model_probability_metrics"]["confusion_matrix"] == {"tn": 2, "fp": 0, "fn": 0, "tp": 2}

@@ -10,3 +10,9 @@ dist/
 .pytest_cache/
 flood_monitoring.db
 qa-screenshots/
+.validation_cache/
+docker-compose.local.yml
+.vercel/
+frontend/.vercel/
+logs/
+*.log

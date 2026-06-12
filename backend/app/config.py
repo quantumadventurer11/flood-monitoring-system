@@ -10,6 +10,7 @@ class Settings(BaseSettings):
     copernicus_password: str | None = None
     allowed_origins: str | None = None
     cors_origins: str = "http://localhost:3000,http://127.0.0.1:3000,https://*.vercel.app"
+    cors_origin_regex: str | None = None
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 

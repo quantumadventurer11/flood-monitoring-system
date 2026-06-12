@@ -1,65 +1,145 @@
-# Production Deployment
+# Secure Production Deployment
 
-This project deploys as three services:
+This project should not be exposed with localtunnel for public review. The secure deployment path is:
 
 - Frontend: Vercel, root directory `frontend`
 - Backend: Render Web Service, root directory `backend`
 - Database: Render Postgres 15, provisioned from `render.yaml`
 
-## Service Choice
+Vercel is the right fit for the React/Vite frontend. The FastAPI backend should stay on Render or an equivalent managed web-service host because it uses ML/geospatial dependencies, a persistent database, startup seeding, and long-running API behavior.
 
-Vercel is the best fit for the React/Vite frontend because it provides static builds, GitHub preview deployments, and simple build-time environment variables. Render is the best fit for the FastAPI backend and Postgres database because it supports long-running Python web services, health checks, Blueprint infrastructure, environment variable injection, and a managed Postgres add-on on the same platform.
+## Required Accounts
 
-## Backend Environment Variables
+- GitHub access to `quantumadventurer11/flood-monitoring-system`
+- Vercel account for the frontend
+- Render account for the backend and database
 
-Set these in the Render backend service dashboard.
+## Backend On Render
 
-| Variable | Required | Value |
-| --- | --- | --- |
-| `DATABASE_URL` | Yes | Render Postgres internal connection string. The Blueprint injects this automatically from `flood-monitoring-system-db`. |
-| `COPERNICUS_USER` | Optional | Your Copernicus Data Space username from `https://dataspace.copernicus.eu`. |
-| `COPERNICUS_PASSWORD` | Optional | Your Copernicus Data Space password. |
-| `ALLOWED_ORIGINS` | Yes | Your Vercel frontend URL, for example `https://your-project.vercel.app`. You may include comma-separated local/dev origins if needed. |
-
-Without Copernicus credentials, the backend still runs with the Open-Meteo fallback path.
-
-## Frontend Environment Variables
-
-Set this in the Vercel project dashboard for Production, Preview, and Development.
-
-| Variable | Required | Value |
-| --- | --- | --- |
-| `VITE_API_URL` | Yes | Your Render backend URL, for example `https://flood-monitoring-system-backend.onrender.com`. |
-
-## Render Setup
-
-1. Create or log into a Render account.
+1. Open Render.
 2. Select **New +** then **Blueprint**.
 3. Connect `quantumadventurer11/flood-monitoring-system`.
-4. Render will read the root `render.yaml` and create:
+4. Use the repository root so Render can read `render.yaml`.
+5. Confirm Render creates:
    - `flood-monitoring-system-backend`
    - `flood-monitoring-system-db`
-5. Add `COPERNICUS_USER`, `COPERNICUS_PASSWORD`, and `ALLOWED_ORIGINS` in the backend service environment settings.
-6. Deploy the backend.
-7. Confirm `https://your-backend-url.onrender.com/health` returns `{"status":"ok","version":"1.0.0"}`.
+6. Set backend environment variables:
 
-The backend start command runs `alembic upgrade head` and `python seed_db.py` before starting Uvicorn. Both are safe to run on every deploy.
+| Variable | Required | Value |
+| --- | --- | --- |
+| `DATABASE_URL` | Yes | Render injects this from `flood-monitoring-system-db`. |
+| `ALLOWED_ORIGINS` | Yes | Production Vercel URL, for example `https://your-project.vercel.app`. |
+| `CORS_ORIGIN_REGEX` | Optional | Use `https://.*\.vercel\.app` only if preview deployments need API access. |
+| `COPERNICUS_USER` | Optional | Copernicus Data Space username. |
+| `COPERNICUS_PASSWORD` | Optional | Copernicus Data Space password. |
 
-## Vercel Setup
+7. Deploy the backend.
+8. Verify:
 
-1. Create or log into a Vercel account.
-2. Import `quantumadventurer11/flood-monitoring-system`.
-3. Set the Vercel project **Root Directory** to `frontend`.
-4. Set `VITE_API_URL` to your Render backend URL.
-5. Deploy the frontend.
+```powershell
+Invoke-RestMethod "https://<render-backend-url>/health"
+Invoke-RestMethod "https://<render-backend-url>/validation/scenarios/bangladesh-2024"
+```
 
-Vercel auto-deploys on pushes to `main`. Render also auto-deploys on pushes to `main` after the Blueprint/service is connected.
+The backend start command runs migrations and seed data before Uvicorn:
+
+```bash
+alembic upgrade head && python seed_db.py && uvicorn app.main:app --host 0.0.0.0 --port $PORT
+```
+
+## Frontend On Vercel
+
+1. Install and authenticate the Vercel CLI:
+
+```powershell
+npm install -g vercel
+vercel login
+```
+
+2. Link the frontend project:
+
+```powershell
+Set-Location -LiteralPath "C:\Users\benja\OneDrive\Documents\Flood Monitoring System\flood-monitoring-system\frontend"
+vercel link
+```
+
+3. Configure the environment variable:
+
+```powershell
+"https://<render-backend-url>" | vercel env add VITE_API_URL production
+```
+
+4. Deploy production:
+
+```powershell
+vercel --prod
+```
+
+`frontend/vercel.json` configures SPA rewrites, build command, install command, and output directory.
+
+## Automated Local Preflight
+
+Run this before any production deployment:
+
+```powershell
+Set-Location -LiteralPath "C:\Users\benja\OneDrive\Documents\Flood Monitoring System\flood-monitoring-system"
+.\scripts\preflight-deploy.ps1 -BackendUrl "https://<render-backend-url>"
+```
+
+The preflight script checks:
+
+- expected branch,
+- untracked `.env` safety,
+- banned wording,
+- backend tests,
+- frontend production build,
+- backend `/health`,
+- Bangladesh 2024 local-data scenario.
+
+## Automated Vercel Deployment
+
+After the Render backend is live:
+
+```powershell
+Set-Location -LiteralPath "C:\Users\benja\OneDrive\Documents\Flood Monitoring System\flood-monitoring-system"
+.\scripts\deploy-vercel.ps1 -BackendUrl "https://<render-backend-url>" -Production
+```
+
+If the Vercel CLI is not installed:
+
+```powershell
+.\scripts\deploy-vercel.ps1 -BackendUrl "https://<render-backend-url>" -Production -InstallVercelCli
+```
+
+The script links the Vercel project, sets `VITE_API_URL`, deploys the frontend, and prints the Vercel URL.
 
 ## Post-Deploy Smoke Test
 
-1. Open the Render backend `/health` URL.
-2. Open the Vercel frontend URL.
-3. Click a country on the dashboard map and confirm a prediction appears.
-4. Open Predictor and submit Bangladesh for today's date.
-5. Open Forecast and confirm five days render with precipitation, soil moisture, and river discharge.
-6. Open Methodology and confirm the five figures and three tables render.
+Replace the placeholders and run:
+
+```powershell
+$BackendUrl = "https://<render-backend-url>"
+$FrontendUrl = "https://<vercel-url>"
+
+Invoke-RestMethod "$BackendUrl/health"
+Invoke-RestMethod "$BackendUrl/paper-results"
+Invoke-RestMethod "$BackendUrl/validation/scenarios/bangladesh-2024"
+Invoke-RestMethod "$BackendUrl/predict/batch/regions" -Method Post -ContentType "application/json" -Body '{"date":"2024-09-04"}'
+Invoke-WebRequest $FrontendUrl -UseBasicParsing
+```
+
+Then open the Vercel URL and check:
+
+- dashboard map renders,
+- Bangladesh 2024 scenario shows local UNOSAT-derived flood coordinates,
+- all monitored countries batch run completes,
+- Methodology page renders.
+
+## Security Notes
+
+- Do not commit `.env`, `.vercel`, generated logs, or secrets.
+- Keep backend secrets only in Render.
+- Keep Vercel environment variables frontend-only.
+- Set `ALLOWED_ORIGINS` to the production Vercel domain.
+- Set `CORS_ORIGIN_REGEX` only if the team needs Vercel preview deployments.
+- Stop localtunnel and the public demo server after migration; keep them as local development fallback only.

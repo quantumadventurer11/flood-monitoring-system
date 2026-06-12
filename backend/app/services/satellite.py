@@ -131,46 +131,85 @@ def _fit_common(scene: dict[str, np.ndarray]) -> dict[str, np.ndarray]:
 
 
 async def _open_meteo_fallback(lat: float, lon: float, target_date: date) -> dict:
-    """Create satellite-like arrays from ERA5 precipitation/soil moisture proxy data."""
+    """Create satellite-like arrays from ERA5 precipitation and a conservative moisture prior."""
 
-    rain = 20.0
-    soil = 0.25
+    rain_7d = 0.0
+    max_daily_rain = 0.0
     try:
         async with httpx.AsyncClient(timeout=12) as client:
+            start_date = target_date - timedelta(days=6)
             response = await client.get(
                 OPEN_METEO_ARCHIVE_URL,
                 params={
                     "latitude": lat,
                     "longitude": lon,
-                    "start_date": target_date.isoformat(),
+                    "start_date": start_date.isoformat(),
                     "end_date": target_date.isoformat(),
                     "daily": "precipitation_sum",
-                    "hourly": "soil_moisture_0_to_1cm",
                     "timezone": "auto",
                 },
             )
             response.raise_for_status()
             payload = response.json()
-            rain = float((payload.get("daily", {}).get("precipitation_sum") or [rain])[0] or rain)
-            hourly_soil = [value for value in payload.get("hourly", {}).get("soil_moisture_0_to_1cm", []) if value is not None]
-            if hourly_soil:
-                soil = float(np.mean(hourly_soil))
+            daily_rain = [float(value or 0.0) for value in payload.get("daily", {}).get("precipitation_sum", [])]
+            if daily_rain:
+                rain_7d = float(np.sum(daily_rain))
+                max_daily_rain = float(np.max(daily_rain))
     except Exception as exc:
         logger.warning("Open-Meteo satellite fallback failed: %s", exc)
 
     rng = np.random.default_rng(abs(hash((round(lat, 3), round(lon, 3), target_date.isoformat()))) % (2**32))
     size = 256
     yy, xx = np.mgrid[0:size, 0:size]
-    water_signal = np.clip(rain / 100 + soil, 0.05, 0.95)
+    prior = _surface_water_prior(lat, lon)
+    water_signal = float(np.clip(prior + rain_7d / 220 + max_daily_rain / 180, 0.0, 0.92))
     basin = np.exp(-(((xx - size * 0.45) / 70) ** 2 + ((yy - size * 0.52) / 42) ** 2))
     river = np.exp(-((yy - size * 0.62 - np.sin(xx / 23) * 24) ** 2) / 900)
-    water = basin * 0.55 + river * 0.65 + rng.normal(0, 0.08, (size, size)) > (0.78 - water_signal * 0.45)
+    floodplain = basin * 0.35 + river * 0.45 + rng.normal(0, 0.05, (size, size))
+    threshold = 0.82 - water_signal * 0.55
+    water = floodplain > threshold
     b03 = 0.22 + water * 0.34 + rng.normal(0, 0.035, (size, size))
     b04 = 0.26 + water * 0.08 + rng.normal(0, 0.03, (size, size))
     b08 = 0.48 - water * 0.34 + rng.normal(0, 0.04, (size, size))
     vv = -14 + water * -5 + rng.normal(0, 1.8, (size, size))
     qa60 = np.zeros((size, size), dtype=np.uint16)
-    return {"B03": b03, "B04": b04, "B08": b08, "VV": vv, "QA60": qa60, "source": "fallback", "date": target_date.isoformat(), "lat": lat, "lon": lon}
+    return {
+        "B03": b03,
+        "B04": b04,
+        "B08": b08,
+        "VV": vv,
+        "QA60": qa60,
+        "source": "fallback",
+        "date": target_date.isoformat(),
+        "lat": lat,
+        "lon": lon,
+        "rain_7d_mm": round(rain_7d, 2),
+        "max_daily_rain_mm": round(max_daily_rain, 2),
+        "water_signal": round(water_signal, 4),
+    }
+
+
+def _surface_water_prior(lat: float, lon: float) -> float:
+    """Approximate standing-water likelihood when no live satellite tile is available."""
+
+    # Known arid belts should not produce synthetic flood water without rainfall.
+    if 15 <= lat <= 32 and -18 <= lon <= 36:
+        return 0.0
+    if -30 <= lat <= -15 and -75 <= lon <= -65:
+        return 0.0
+    if -32 <= lat <= -15 and 120 <= lon <= 145:
+        return 0.02
+
+    # River deltas and low wetland regions get a modest prior, but still need rain for High risk.
+    if 20 <= lat <= 27 and 88 <= lon <= 93:
+        return 0.18
+    if 49 <= lat <= 54 and 3 <= lon <= 8:
+        return 0.12
+    if -5 <= lat <= 8 and -75 <= lon <= -45:
+        return 0.12
+    if 5 <= lat <= 15 and 28 <= lon <= 36:
+        return 0.14
+    return 0.06
 
 
 async def fetch_satellite_scene(country: str, lat: float, lon: float, buffer_km: float, start_date: date, end_date: date) -> dict:

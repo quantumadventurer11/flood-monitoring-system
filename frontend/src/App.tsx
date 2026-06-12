@@ -1,5 +1,6 @@
-import { Activity, CloudRain, History, MapPinned, Microscope } from "lucide-react";
-import { useState } from "react";
+import { Activity, CloudRain, History, MapPinned, Microscope, Moon, Sun } from "lucide-react";
+import { useEffect, useState } from "react";
+import SpacexAILogo from "./components/SpacexAILogo";
 import Dashboard from "./pages/Dashboard";
 import Forecast from "./pages/Forecast";
 import HistoryPage from "./pages/History";
@@ -14,9 +15,29 @@ const pages = [
   { id: "methodology", label: "Methodology", icon: Microscope, component: Methodology },
 ];
 
+function pageFromPath() {
+  const pageId = window.location.pathname.replace("/", "");
+  return pages.some((page) => page.id === pageId) ? pageId : "dashboard";
+}
+
 export default function App() {
-  const [active, setActive] = useState("dashboard");
+  const [active, setActive] = useState(pageFromPath);
   const [forecastPlace, setForecastPlace] = useState<{ country: string; lat: number; lon: number } | null>(null);
+  const [theme, setTheme] = useState<"light" | "dark">(() => {
+    const stored = window.localStorage.getItem("theme");
+    if (stored === "light" || stored === "dark") return stored;
+    return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+  });
+
+  useEffect(() => {
+    document.documentElement.classList.toggle("dark", theme === "dark");
+    window.localStorage.setItem("theme", theme);
+  }, [theme]);
+
+  const openPage = (pageId: string) => {
+    setActive(pageId);
+    window.history.replaceState(null, "", pageId === "dashboard" ? "/" : `/${pageId}`);
+  };
   const openForecast = (place: { country: string; lat: number; lon: number }) => {
     setForecastPlace(place);
     setActive("forecast");
@@ -24,30 +45,47 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50">
-      <header className="border-b border-slate-200 bg-white">
+    <div className="min-h-screen bg-slate-50 transition-colors duration-300 dark:bg-slate-950">
+      <header className="border-b border-slate-200 bg-white/95 backdrop-blur transition-colors duration-300 dark:border-slate-800 dark:bg-slate-950/95">
         <div className="mx-auto flex max-w-7xl flex-col gap-3 px-4 py-4 md:flex-row md:items-center md:justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-ink">Flood Monitoring System</h1>
-            <p className="text-sm text-slate-600">Sentinel SAR/optical classification with paper-faithful methodology visuals.</p>
+          <div className="flex items-center gap-3">
+            <div className="grid h-11 w-11 place-items-center rounded-lg bg-blue-600 text-white shadow-sm">
+              <MapPinned size={22} />
+            </div>
+            <div>
+              <h1 className="text-2xl font-bold text-ink dark:text-white">Flood Monitoring System</h1>
+              <p className="text-sm text-slate-600 dark:text-slate-400">Satellite, rainfall, and validation signals for flood-risk monitoring.</p>
+            </div>
           </div>
-          <nav className="flex flex-wrap gap-2">
-            {pages.map((page) => {
-              const Icon = page.icon;
-              return (
-                <button
-                  key={page.id}
-                  onClick={() => setActive(page.id)}
-                  className={`flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition ${
-                    active === page.id ? "bg-flood text-white" : "bg-slate-100 text-slate-700 hover:bg-slate-200"
-                  }`}
-                >
-                  <Icon size={16} />
-                  {page.label}
-                </button>
-              );
-            })}
-          </nav>
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 dark:border-slate-800 dark:bg-slate-900">
+              <SpacexAILogo />
+            </div>
+            <button
+              aria-label="Toggle color theme"
+              onClick={() => setTheme((current) => (current === "dark" ? "light" : "dark"))}
+              className="interactive-button grid h-10 w-10 place-items-center rounded-lg border border-slate-200 bg-white text-slate-700 transition hover:bg-slate-100 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-100 dark:hover:bg-slate-800"
+            >
+              {theme === "dark" ? <Sun size={17} /> : <Moon size={17} />}
+            </button>
+            <nav className="flex flex-wrap gap-2">
+              {pages.map((page) => {
+                const Icon = page.icon;
+                return (
+                  <button
+                    key={page.id}
+                    onClick={() => openPage(page.id)}
+                    className={`interactive-button flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition ${
+                      active === page.id ? "bg-flood text-white" : "bg-slate-100 text-slate-700 hover:bg-slate-200 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800"
+                    }`}
+                  >
+                    <Icon size={16} />
+                    {page.label}
+                  </button>
+                );
+              })}
+            </nav>
+          </div>
         </div>
       </header>
       <main className="mx-auto max-w-7xl px-4 py-6">

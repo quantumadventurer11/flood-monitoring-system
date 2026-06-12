@@ -12,6 +12,14 @@ body {
   margin: 0;
 }
 
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  @apply bg-slate-50 text-slate-900 transition-colors duration-300 dark:bg-slate-950 dark:text-slate-100;
+}
+
 .leaflet-container {
   height: 100%;
   min-height: 360px;
@@ -19,9 +27,111 @@ body {
 }
 
 .card {
-  @apply rounded-lg border border-slate-200 bg-white shadow-sm;
+  @apply rounded-lg border border-slate-200 bg-white shadow-sm transition-colors duration-300 dark:border-slate-800 dark:bg-slate-900 dark:shadow-none;
+}
+
+.interactive-button {
+  @apply transition duration-200 ease-out active:scale-[0.98];
+}
+
+.alive-card {
+  @apply transition duration-300 ease-out hover:-translate-y-0.5 hover:shadow-md dark:hover:shadow-none;
+}
+
+.status-sweep {
+  position: relative;
+  overflow: hidden;
+}
+
+.status-sweep::after {
+  background: linear-gradient(90deg, transparent, rgba(14, 165, 233, 0.18), transparent);
+  content: "";
+  inset: 0;
+  position: absolute;
+  transform: translateX(-100%);
+  animation: status-sweep 2.6s ease-in-out infinite;
+}
+
+.map-overlay {
+  animation: soft-rise 480ms ease both;
+}
+
+.hotspot-pulse {
+  animation: hotspot-pulse 1.9s ease-in-out infinite;
 }
 
 .section-title {
-  @apply text-xl font-semibold text-ink;
+  @apply text-xl font-semibold text-ink dark:text-slate-100;
+}
+
+.soft-panel {
+  animation: soft-rise 560ms ease both;
+}
+
+.risk-glow {
+  animation: risk-glow 2.8s ease-in-out infinite;
+}
+
+.orbit-spin {
+  transform-origin: center;
+  animation: orbit-spin 16s linear infinite;
+}
+
+.gentle-pulse {
+  animation: gentle-pulse 2.4s ease-in-out infinite;
+}
+
+@keyframes soft-rise {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes risk-glow {
+  0%, 100% {
+    box-shadow: 0 0 0 rgba(0, 119, 182, 0);
+  }
+  50% {
+    box-shadow: 0 18px 42px rgba(0, 119, 182, 0.18);
+  }
+}
+
+@keyframes orbit-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes gentle-pulse {
+  0%, 100% {
+    opacity: 0.72;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+@keyframes status-sweep {
+  0% {
+    transform: translateX(-100%);
+  }
+  55%, 100% {
+    transform: translateX(100%);
+  }
+}
+
+@keyframes hotspot-pulse {
+  0%, 100% {
+    filter: drop-shadow(0 0 0 rgba(14, 165, 233, 0));
+    transform: scale(1);
+  }
+  50% {
+    filter: drop-shadow(0 0 8px rgba(14, 165, 233, 0.55));
+    transform: scale(1.04);
+  }
 }

@@ -63,6 +63,8 @@ docker compose down
 | `GET` | `/events` | Return recent flood events. |
 | `GET` | `/alerts` | Return active flood alerts. |
 | `GET` | `/regions` | Return global flood-prone countries with centroids and baseline risk. |
+| `POST` | `/predict/batch/regions` | Run prediction across all configured monitoring regions. |
+| `GET` | `/validation/scenarios/bangladesh-2024` | Return local UNOSAT-derived Bangladesh 2024 flood-coordinate records. |
 
 ## Without Copernicus Credentials
 
@@ -90,43 +92,51 @@ The Methodology page reproduces:
 
 Table A1 and Table 3 values are treated as authoritative where PDF prose conflicts with structured results.
 
+## Independent Validation Audit
+
+The app documents UNOSAT FL20240825BGD as the independent validation source for the 2024 Bangladesh floods. The bundled validation script downloads the UNOSAT shapefile, converts the flood polygons into regular patch-centroid labels, and writes an audit JSON:
+
+```bash
+cd backend
+python scripts/validate_unosat_bangladesh.py
+```
+
+To compute publishable validation metrics, provide a CSV containing real patch-level scores generated independently from the UNOSAT labels:
+
+```bash
+python scripts/validate_unosat_bangladesh.py --scores-csv path/to/patch_scores.csv
+```
+
+The CSV must contain `patch_id`, `ndwi_water_fraction`, and `model_probability`. NDWI-derived water fraction is treated as a feature or score, not as the ground-truth label.
+
 ## Deployment
 
-### Frontend on Vercel
+Use `DEPLOYMENT.md` for the full production runbook. The public deployment path is:
 
-1. Set the Vercel project root to `frontend`.
-2. Add environment variable:
-   - `VITE_API_URL=https://your-backend-url`
-3. Deploy:
+- Frontend: Vercel from `frontend`
+- Backend: Render Web Service from `backend`
+- Database: Render Postgres from `render.yaml`
 
-```bash
-cd frontend
-vercel --prod
+Run deployment preflight before publishing:
+
+```powershell
+Set-Location -LiteralPath "C:\Users\benja\OneDrive\Documents\Flood Monitoring System\flood-monitoring-system"
+.\scripts\preflight-deploy.ps1 -BackendUrl "https://<render-backend-url>"
 ```
 
-`frontend/vercel.json` configures SPA rewrites, build command, install command, output directory, and `VITE_API_URL`.
+Deploy the frontend after the Render backend is live:
 
-### Backend on Render
-
-1. Create a Render PostgreSQL database.
-2. Create a Render Web Service from this repo.
-3. Set root directory to `backend`.
-4. Add environment variables:
-   - `DATABASE_URL`
-   - `COPERNICUS_USER`
-   - `COPERNICUS_PASSWORD`
-   - `CORS_ORIGINS`
-5. Build command:
-
-```bash
-pip install -r requirements.txt
+```powershell
+.\scripts\deploy-vercel.ps1 -BackendUrl "https://<render-backend-url>" -Production
 ```
 
-6. Start command:
+If the Vercel CLI is not installed:
 
-```bash
-alembic upgrade head && python seed_db.py && uvicorn app.main:app --host 0.0.0.0 --port $PORT
+```powershell
+.\scripts\deploy-vercel.ps1 -BackendUrl "https://<render-backend-url>" -Production -InstallVercelCli
 ```
+
+Do not use localtunnel for public review after the Vercel/Render deployment is active.
 
 ## Tests
 

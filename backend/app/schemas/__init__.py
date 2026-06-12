@@ -1,23 +1,33 @@
 from app.schemas.common import (
     AlertOut,
+    BatchPredictionItem,
+    BatchPredictionRequest,
+    BatchPredictionResponse,
     EventOut,
     ForecastDay,
     ForecastRequest,
+    HotspotOut,
     IngestRequest,
     IngestResponse,
     PredictRequest,
     PredictResponse,
     RegionOut,
+    ValidationScenarioResponse,
 )
 
 __all__ = [
     "AlertOut",
+    "BatchPredictionItem",
+    "BatchPredictionRequest",
+    "BatchPredictionResponse",
     "EventOut",
     "ForecastDay",
     "ForecastRequest",
+    "HotspotOut",
     "IngestRequest",
     "IngestResponse",
     "PredictRequest",
     "PredictResponse",
     "RegionOut",
+    "ValidationScenarioResponse",
 ]

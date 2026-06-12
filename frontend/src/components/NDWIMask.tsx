@@ -71,14 +71,14 @@ export default function NDWIMask() {
       <div className="grid gap-4 md:grid-cols-2">
         <figure className="card p-3">
           <canvas ref={raw} className="aspect-square w-full rounded-md" />
-          <figcaption className="mt-2 text-center text-sm font-medium text-slate-700">Raw satellite image simulation</figcaption>
+          <figcaption className="mt-2 text-center text-sm font-medium text-slate-700">Diagnostic satellite-style view</figcaption>
         </figure>
         <figure className="card p-3">
           <canvas ref={mask} className="aspect-square w-full rounded-md" />
-          <figcaption className="mt-2 text-center text-sm font-medium text-slate-700">NDWI-masked water detection</figcaption>
+          <figcaption className="mt-2 text-center text-sm font-medium text-slate-700">NDWI feature response</figcaption>
         </figure>
       </div>
-      <p className="mt-3 text-sm text-slate-600">NDWI-based water masking used to enhance flooded regions during preprocessing</p>
+      <p className="mt-3 text-sm text-slate-600">NDWI is computed during preprocessing and audited separately from UNOSAT validation labels.</p>
       <div className="mt-3 h-3 rounded-full bg-gradient-to-r from-slate-400 to-blue-500" />
       <div className="mt-1 flex justify-between text-xs text-slate-500"><span>Non-water</span><span>Water/flooded</span></div>
     </div>
