@@ -16,3 +16,5 @@ docker-compose.local.yml
 frontend/.vercel/
 logs/
 *.log
+
+.vercel
