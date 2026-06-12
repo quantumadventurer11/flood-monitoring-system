@@ -1,6 +1,6 @@
-import { Activity, CloudRain, Compass, Gauge, Globe2, Info, MapPin, Satellite } from "lucide-react";
+import { Activity, AlertTriangle, CloudRain, Compass, Gauge, Globe2, Info, MapPin, Satellite, ShieldCheck } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
-import { api, type BatchPrediction, type Event, type Hotspot, type Prediction, type Region, type ValidationScenario } from "../api/client";
+import { api, type BatchPrediction, type Event, type Hotspot, type ModelStatus, type Prediction, type Region, type ValidationScenario } from "../api/client";
 import AlertBanner from "../components/AlertBanner";
 import { countryFlag } from "../components/CountrySelector";
 import EventsTable from "../components/EventsTable";
@@ -14,6 +14,8 @@ const defaultPrediction: Prediction = {
   confidence: 0.9,
   data_source: "fallback",
   date: new Date().toISOString().slice(0, 10),
+  operational_mode: "fallback_open_meteo_proxy",
+  publishable: false,
   validation_status: "not_independently_validated",
   validation_note: "Run a prediction to see validation status.",
   rain_7d_mm: null,
@@ -23,6 +25,8 @@ const defaultPrediction: Prediction = {
 };
 
 const formatMetric = (value?: number | null, suffix = "") => (typeof value === "number" ? `${value.toFixed(value >= 10 ? 1 : 2)}${suffix}` : "Pending");
+
+const formatMode = (mode?: string) => (mode ? mode.replace(/_/g, " ") : "checking");
 
 function riskSummary(risk: string) {
   if (risk === "High") return "Flood-like conditions are strong in this check. Review local alerts before making decisions.";
@@ -39,12 +43,26 @@ export default function Dashboard({ onOpenForecast }: { onOpenForecast: (place: 
   const [batchLoading, setBatchLoading] = useState(false);
   const [scenario, setScenario] = useState<ValidationScenario | null>(null);
   const [scenarioLoading, setScenarioLoading] = useState(false);
+  const [modelStatus, setModelStatus] = useState<ModelStatus | null>(null);
+  const [modelStatusError, setModelStatusError] = useState<string | null>(null);
   const [statusMessage, setStatusMessage] = useState("Satellite terrain is visible underneath the country colors.");
 
   useEffect(() => {
     const load = async () => {
-      setRegions(await api.regions());
-      setEvents((await api.events()).slice(0, 10));
+      const [regionRows, eventRows, status] = await Promise.all([
+        api.regions(),
+        api.events(),
+        api.modelStatus().catch((error) => {
+          setModelStatusError(error instanceof Error ? error.message : "Model status unavailable.");
+          return null;
+        }),
+      ]);
+      setRegions(regionRows);
+      setEvents(eventRows.slice(0, 10));
+      if (status) {
+        setModelStatus(status);
+        setModelStatusError(null);
+      }
     };
     load();
     const id = window.setInterval(load, 300000);
@@ -109,6 +127,8 @@ export default function Dashboard({ onOpenForecast }: { onOpenForecast: (place: 
   );
 
   const isFallback = prediction.validation_status.includes("fallback") || prediction.data_source === "fallback";
+  const backendFallback = modelStatus?.fallback_active ?? isFallback;
+  const publishablePrediction = prediction.publishable && !isFallback;
   const probabilityPct = Math.round(prediction.flood_probability * 100);
   const confidencePct = Math.round(prediction.confidence * 100);
   const hasLivePrediction = prediction.validation_status !== "not_independently_validated";
@@ -178,6 +198,29 @@ export default function Dashboard({ onOpenForecast }: { onOpenForecast: (place: 
             </p>
           )}
         </div>
+        <div className={`card alive-card soft-panel p-4 ${backendFallback ? "border-amber-200 dark:border-amber-800" : "border-emerald-200 dark:border-emerald-800"}`}>
+          <div className="mb-3 flex items-center gap-2">
+            {backendFallback ? <AlertTriangle size={17} className="text-amber-700 dark:text-amber-300" /> : <ShieldCheck size={17} className="text-emerald-700 dark:text-emerald-300" />}
+            <h3 className="font-semibold text-slate-800 dark:text-white">Model Status</h3>
+          </div>
+          <div className="grid gap-2 text-sm">
+            <div className="flex items-center justify-between gap-3 rounded border border-slate-100 px-3 py-2 dark:border-slate-800">
+              <span className="text-slate-500 dark:text-slate-400">Backend</span>
+              <strong className="text-slate-900 dark:text-slate-100">{modelStatus?.backend_status ?? (modelStatusError ? "error" : "checking")}</strong>
+            </div>
+            <div className="flex items-center justify-between gap-3 rounded border border-slate-100 px-3 py-2 dark:border-slate-800">
+              <span className="text-slate-500 dark:text-slate-400">Data mode</span>
+              <strong className="text-right capitalize text-slate-900 dark:text-slate-100">{formatMode(modelStatus?.data_mode)}</strong>
+            </div>
+            <div className="flex items-center justify-between gap-3 rounded border border-slate-100 px-3 py-2 dark:border-slate-800">
+              <span className="text-slate-500 dark:text-slate-400">XGBoost model</span>
+              <strong className="text-slate-900 dark:text-slate-100">{modelStatus?.model_loaded || modelStatus?.model_artifact_present ? "available" : "checking"}</strong>
+            </div>
+          </div>
+          <p className={`mt-3 rounded border px-3 py-2 text-xs ${backendFallback ? "border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200" : "border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-200"}`}>
+            {modelStatusError ?? modelStatus?.note ?? "Checking hosted model readiness."}
+          </p>
+        </div>
         <div className="card risk-glow soft-panel alive-card overflow-hidden">
           <div className={`h-2 ${prediction.risk_level === "High" ? "bg-red-600" : prediction.risk_level === "Medium" ? "bg-amber-500" : "bg-green-600"}`} />
           <div className="p-4">
@@ -187,7 +230,7 @@ export default function Dashboard({ onOpenForecast }: { onOpenForecast: (place: 
               <span className={`rounded px-3 py-1 text-sm font-bold text-white ${prediction.risk_level === "High" ? "bg-red-600" : prediction.risk_level === "Medium" ? "bg-amber-600" : "bg-green-600"}`}>{prediction.risk_level}</span>
             </div>
             <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">{hasLivePrediction ? riskSummary(prediction.risk_level) : "Select a country on the map to run a prediction."}</p>
-            <p className="mt-3 text-xs text-slate-500 dark:text-slate-400">Source: {isFallback ? "rainfall-based proxy" : "satellite scene"} · {prediction.data_source}</p>
+            <p className="mt-3 text-xs text-slate-500 dark:text-slate-400">Source: {isFallback ? "rainfall-based proxy" : "satellite scene"} · {formatMode(prediction.operational_mode)}</p>
           </div>
         </div>
         <FloodGauge probability={prediction.flood_probability} />
@@ -211,7 +254,7 @@ export default function Dashboard({ onOpenForecast }: { onOpenForecast: (place: 
             </div>
             <div className="alive-card rounded border border-slate-100 p-2 dark:border-slate-800">
               <dt className="text-xs text-slate-500 dark:text-slate-400">Check type</dt>
-              <dd className="font-semibold text-slate-900 dark:text-slate-100">{isFallback ? "Proxy" : "Satellite"}</dd>
+              <dd className="font-semibold text-slate-900 dark:text-slate-100">{publishablePrediction ? "Satellite" : "Proxy"}</dd>
             </div>
           </dl>
           <p className="mt-3 text-xs text-slate-500 dark:text-slate-400">These indicators are separate from independent ground-truth validation.</p>
@@ -241,7 +284,7 @@ export default function Dashboard({ onOpenForecast }: { onOpenForecast: (place: 
               </div>
             </div>
             <p className={`rounded border px-3 py-2 text-xs ${isFallback ? "border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200" : "border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-200"}`}>
-              {isFallback ? "Fallback forecasts are triage-only until Sentinel/Copernicus patch scores are validated against ground truth." : "Satellite-scene predictions should be exported and compared with UNOSAT labels before citation."}
+              {publishablePrediction ? "Satellite-scene predictions should be exported and compared with UNOSAT labels before citation." : "Fallback forecasts are triage-only until Sentinel/Copernicus patch scores are validated against ground truth."}
             </p>
           </div>
         </div>

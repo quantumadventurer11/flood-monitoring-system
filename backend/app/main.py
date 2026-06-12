@@ -3,7 +3,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api.routes import alerts, events, forecast, ingest, paper_results, predict, regions, validation
+from app.api.routes import alerts, events, forecast, ingest, model_status, paper_results, predict, regions, validation
 from app.config import get_settings
 from app.database import init_db
 
@@ -41,6 +41,7 @@ def create_app() -> FastAPI:
     app.include_router(regions.router)
     app.include_router(paper_results.router)
     app.include_router(validation.router)
+    app.include_router(model_status.router)
 
     @app.get("/health")
     def health() -> dict[str, str]:

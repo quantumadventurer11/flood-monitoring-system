@@ -5,6 +5,8 @@ import CountrySelector, { countries, type Country } from "../components/CountryS
 import FloodGauge from "../components/FloodGauge";
 import FloodMap, { type SelectedPlace } from "../components/Map";
 
+const formatMode = (mode: string) => mode.replace(/_/g, " ");
+
 export default function Predictor({ onOpenForecast }: { onOpenForecast: (place: SelectedPlace) => void }) {
   const today = useMemo(() => new Date().toISOString().slice(0, 10), []);
   const [regions, setRegions] = useState<Region[]>([]);
@@ -50,8 +52,12 @@ export default function Predictor({ onOpenForecast }: { onOpenForecast: (place: 
             <p className="text-sm text-slate-700">Risk level: <strong>{prediction.risk_level}</strong></p>
             <p className="text-sm text-slate-700">Classification: <strong>{prediction.classification}</strong></p>
             <p className="text-sm text-slate-700">Confidence: <strong>{Math.round(prediction.confidence * 100)}%</strong></p>
-            <p className="text-sm text-slate-700">Data source: <strong>{prediction.data_source === "copernicus" ? "Copernicus satellite" : "Fallback weather proxy"}</strong></p>
+            <p className="text-sm text-slate-700">Data mode: <strong>{formatMode(prediction.operational_mode)}</strong></p>
+            <p className="text-sm text-slate-700">Publication status: <strong>{prediction.publishable ? "Ready for export audit" : "Not publishable validation output"}</strong></p>
             <p className="text-sm text-slate-700">Satellite date: <strong>{prediction.date}</strong></p>
+            {!prediction.publishable && (
+              <p className="rounded border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">{prediction.validation_note}</p>
+            )}
             <button className="flex w-full items-center justify-center gap-2 rounded-md bg-slate-900 px-3 py-2 text-sm font-semibold text-white" onClick={() => onOpenForecast(country)}>
               <CloudRain size={16} />
               View 5-Day Forecast

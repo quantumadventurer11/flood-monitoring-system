@@ -12,6 +12,7 @@ const GEOJSON_URL = "https://raw.githubusercontent.com/datasets/geo-countries/ma
 
 const riskColor = (risk: string) => (risk === "High" ? "#dc2626" : risk === "Medium" ? "#d97706" : "#16a34a");
 const baselineColor = (risk: number) => (risk > 0.6 ? "#94a3b8" : risk >= 0.3 ? "#cbd5e1" : "#e2e8f0");
+const formatMode = (mode: string) => mode.replace(/_/g, " ");
 
 function FlyTo({ lat, lon }: { lat: number; lon: number }) {
   const map = useMap();
@@ -132,7 +133,7 @@ export default function FloodMap({
                 onPrediction?.(result);
                 layer
                   .bindPopup(
-                    `<strong>${name}</strong><br/>Flood probability: ${Math.round(prediction.flood_probability * 100)}%<br/>Risk: ${prediction.risk_level}<br/>Confidence: ${Math.round(prediction.confidence * 100)}%<br/>Data source: ${prediction.data_source}<br/>Validation: ${prediction.validation_status}`
+                    `<strong>${name}</strong><br/>Flood probability: ${Math.round(prediction.flood_probability * 100)}%<br/>Risk: ${prediction.risk_level}<br/>Confidence: ${Math.round(prediction.confidence * 100)}%<br/>Data mode: ${formatMode(prediction.operational_mode)}<br/>Publishable: ${prediction.publishable ? "yes" : "no"}<br/>Validation: ${prediction.validation_status}`
                   )
                   .openPopup();
               } finally {

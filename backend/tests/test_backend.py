@@ -40,6 +40,37 @@ def test_regions_global_list():
     assert {"country", "lat", "lon", "risk_baseline"}.issubset(rows[0].keys())
 
 
+def test_model_status_reports_fallback_when_credentials_missing(monkeypatch):
+    from app.api.routes import model_status as model_status_route
+
+    monkeypatch.setattr(model_status_route, "credentials_available", lambda: False)
+    response = client.get("/model-status")
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["backend_status"] == "ok"
+    assert data["data_mode"] == "fallback_open_meteo_proxy"
+    assert data["fallback_active"] is True
+    assert data["copernicus_credentials_configured"] is False
+    assert data["publishable_predictions"] is False
+    assert data["validation_status"] == "fallback_not_ground_truth_validated"
+
+
+def test_model_status_reports_sentinel_mode_when_credentials_exist(monkeypatch):
+    from app.api.routes import model_status as model_status_route
+
+    monkeypatch.setattr(model_status_route, "credentials_available", lambda: True)
+    response = client.get("/model-status")
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["data_mode"] == "copernicus_sentinel"
+    assert data["fallback_active"] is False
+    assert data["copernicus_credentials_configured"] is True
+    assert data["publishable_predictions"] is True
+    assert data["validation_status"] == "sentinel_scene_ready_for_unosat_audit"
+
+
 def test_scene_prediction_aggregation_resists_single_patch_spikes():
     dry_scene = summarize_scene_prediction([0.01] * 16)
     mixed_scene = summarize_scene_prediction([0.01] * 11 + [0.99] * 5)
@@ -58,6 +89,31 @@ def test_patch_hotspots_stay_inside_scene_bbox():
     assert hotspots[0]["probability"] == 0.8
     assert all(23.2 < item["lat"] < 24.2 for item in hotspots)
     assert all(89.8 < item["lon"] < 90.9 for item in hotspots)
+
+
+def test_predict_fallback_response_is_not_publishable(monkeypatch):
+    from app.api.routes import predict as predict_route
+
+    async def fake_scene(*_args, **_kwargs):
+        return {
+            "source": "fallback",
+            "date": "2024-09-04",
+            "rain_7d_mm": 12.0,
+            "max_daily_rain_mm": 6.0,
+            "water_signal": 0.25,
+        }
+
+    monkeypatch.setattr(predict_route, "fetch_satellite_scene", fake_scene)
+    monkeypatch.setattr(predict_route, "scene_patch_probabilities", lambda _scene: [0.2, 0.3, 0.4, 0.1])
+    response = client.post("/predict", json={"country": "Bangladesh", "lat": 23.685, "lon": 90.3563, "date": "2024-09-04"})
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["data_source"] == "fallback"
+    assert data["operational_mode"] == "fallback_open_meteo_proxy"
+    assert data["publishable"] is False
+    assert data["validation_status"] == "fallback_not_ground_truth_validated"
+    assert data["confidence"] <= 0.65
 
 
 def test_batch_regions_contract(monkeypatch):
@@ -109,6 +165,8 @@ def test_bangladesh_2024_validation_scenario(monkeypatch):
     assert data["ground_truth_hotspots"][0]["data"]["source_product_id"] == "3954"
     assert data["model_hotspots"] == []
     assert data["prediction"]["data_source"] == "local_unosat_ground_truth"
+    assert data["prediction"]["operational_mode"] == "local_ground_truth_coordinate_scenario"
+    assert data["prediction"]["publishable"] is True
 
 
 def test_surface_water_prior_has_arid_controls():

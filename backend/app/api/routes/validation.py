@@ -53,6 +53,8 @@ async def bangladesh_2024_scenario() -> dict:
         "confidence": 1.0,
         "data_source": "local_unosat_ground_truth",
         "date": event_date,
+        "operational_mode": "local_ground_truth_coordinate_scenario",
+        "publishable": True,
         "validation_status": "ground_truth_coordinate_scenario",
         "validation_note": "Bangladesh 2024 scenario uses only locally stored UNOSAT-derived flood patch coordinates; no internet data is fetched for these flood-point records.",
         "rain_7d_mm": None,

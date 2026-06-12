@@ -102,6 +102,19 @@ try {
       }
     }
 
+    Invoke-Checked "Managed backend model status" {
+      $status = Test-Url "$api/model-status"
+      if ($status.backend_status -ne "ok") {
+        throw "Model status returned unexpected payload: $($status | ConvertTo-Json -Compress)"
+      }
+      if (-not $status.model_artifact_present -and -not $status.model_loaded) {
+        throw "Model status did not report an available XGBoost model."
+      }
+      if ($status.fallback_active) {
+        Write-Host "Warning: hosted backend is in fallback proxy mode. Set COPERNICUS_USER and COPERNICUS_PASSWORD in Render for Sentinel-backed inference." -ForegroundColor Yellow
+      }
+    }
+
     Invoke-Checked "Bangladesh local validation scenario" {
       $scenario = Test-Url "$api/validation/scenarios/bangladesh-2024"
       if ($scenario.prediction.data_source -ne "local_unosat_ground_truth") {

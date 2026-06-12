@@ -63,6 +63,8 @@ export type Prediction = {
   confidence: number;
   data_source: string;
   date: string;
+  operational_mode: string;
+  publishable: boolean;
   validation_status: string;
   validation_note?: string | null;
   rain_7d_mm?: number | null;
@@ -113,6 +115,19 @@ export type ValidationScenario = {
   ground_truth_hotspots: Hotspot[];
   model_hotspots: Hotspot[];
   prediction: Prediction;
+};
+
+export type ModelStatus = {
+  backend_status: string;
+  model_loaded: boolean;
+  model_artifact_present: boolean;
+  model_type: string;
+  data_mode: string;
+  fallback_active: boolean;
+  copernicus_credentials_configured: boolean;
+  publishable_predictions: boolean;
+  validation_status: string;
+  note: string;
 };
 
 export type ForecastDay = {
@@ -166,6 +181,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 
 export const api = {
   paperResults: () => request<PaperResults>("/paper-results"),
+  modelStatus: () => request<ModelStatus>("/model-status"),
   events: () => request<Event[]>("/events"),
   alerts: () => request<Alert[]>("/alerts"),
   regions: () => request<Region[]>("/regions"),

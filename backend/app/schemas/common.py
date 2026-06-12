@@ -41,12 +41,27 @@ class PredictResponse(BaseModel):
     confidence: float
     data_source: str
     date: date
+    operational_mode: str = "fallback_proxy"
+    publishable: bool = False
     validation_status: str = "not_independently_validated"
     validation_note: str | None = None
     rain_7d_mm: float | None = None
     max_daily_rain_mm: float | None = None
     water_signal: float | None = None
     hotspots: list[HotspotOut] = []
+
+
+class ModelStatusResponse(BaseModel):
+    backend_status: str
+    model_loaded: bool
+    model_artifact_present: bool
+    model_type: str
+    data_mode: str
+    fallback_active: bool
+    copernicus_credentials_configured: bool
+    publishable_predictions: bool
+    validation_status: str
+    note: str
 
 
 class BatchPredictionRequest(BaseModel):

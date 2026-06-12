@@ -30,16 +30,19 @@ Vercel is the right fit for the React/Vite frontend. The FastAPI backend should 
 | `DATABASE_URL` | Yes | Render injects this from `flood-monitoring-system-db`. |
 | `ALLOWED_ORIGINS` | Yes | Production Vercel URL, for example `https://your-project.vercel.app`. |
 | `CORS_ORIGIN_REGEX` | Optional | Defaults to `https://.*\.vercel\.app`; override only for stricter custom-domain deployments. |
-| `COPERNICUS_USER` | Optional | Copernicus Data Space username. |
-| `COPERNICUS_PASSWORD` | Optional | Copernicus Data Space password. |
+| `COPERNICUS_USER` | Required for satellite-backed inference | Copernicus Data Space username. |
+| `COPERNICUS_PASSWORD` | Required for satellite-backed inference | Copernicus Data Space password. |
 
 7. Deploy the backend.
 8. Verify:
 
 ```powershell
 Invoke-RestMethod "https://<render-backend-url>/health"
+Invoke-RestMethod "https://<render-backend-url>/model-status"
 Invoke-RestMethod "https://<render-backend-url>/validation/scenarios/bangladesh-2024"
 ```
+
+`/model-status` must report `data_mode: copernicus_sentinel` and `fallback_active: false` before the dashboard should be treated as satellite-backed production inference. If it reports `fallback_open_meteo_proxy`, the backend is online but predictions are not publishable validation output.
 
 The backend start command runs migrations and seed data before Uvicorn:
 
@@ -94,6 +97,7 @@ The preflight script checks:
 - backend tests,
 - frontend production build,
 - backend `/health`,
+- backend `/model-status`,
 - Bangladesh 2024 local-data scenario.
 
 ## Automated Vercel Deployment
@@ -122,6 +126,7 @@ $BackendUrl = "https://<render-backend-url>"
 $FrontendUrl = "https://<vercel-url>"
 
 Invoke-RestMethod "$BackendUrl/health"
+Invoke-RestMethod "$BackendUrl/model-status"
 Invoke-RestMethod "$BackendUrl/paper-results"
 Invoke-RestMethod "$BackendUrl/validation/scenarios/bangladesh-2024"
 Invoke-RestMethod "$BackendUrl/predict/batch/regions" -Method Post -ContentType "application/json" -Body '{"date":"2024-09-04"}'

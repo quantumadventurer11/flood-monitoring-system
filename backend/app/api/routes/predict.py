@@ -97,12 +97,16 @@ async def compute_prediction(payload: PredictRequest) -> dict:
     data_source = str(scene.get("source", "fallback"))
     if data_source == "fallback":
         result["confidence"] = min(float(result["confidence"]), 0.65)
+        result["operational_mode"] = "fallback_open_meteo_proxy"
+        result["publishable"] = False
         result["validation_status"] = "fallback_not_ground_truth_validated"
         result["validation_note"] = (
             "Copernicus/Sentinel credentials are unavailable, so this is an Open-Meteo proxy triage score. "
             "The fallback failed the UNOSAT Bangladesh ground-truth recall audit and must not be cited as a validated flood map."
         )
     else:
+        result["operational_mode"] = "copernicus_sentinel_scene"
+        result["publishable"] = True
         result["validation_status"] = "sentinel_scene_ready_for_unosat_audit"
         result["validation_note"] = "Computed from Sentinel scene data; compare exported patch scores with UNOSAT labels before citing independent metrics."
 
