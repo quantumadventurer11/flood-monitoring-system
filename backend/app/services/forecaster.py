@@ -49,20 +49,25 @@ async def fetch_forecast(country: str, lat: float, lon: float, db: Session) -> l
     flood = {}
     river_failed = False
     river_note = "Open-Meteo Flood API river discharge available."
+    weather_error = ""
     try:
         async with httpx.AsyncClient(timeout=12) as client:
-            weather_response = await client.get(
-                FORECAST_URL,
-                params={
-                    "latitude": lat,
-                    "longitude": lon,
-                    "daily": "precipitation_sum",
-                    "hourly": "soil_moisture_0_to_1cm",
-                    "forecast_days": 5,
-                    "timezone": "auto",
-                },
-            )
-            weather_response.raise_for_status()
+            weather_params = {
+                "latitude": lat,
+                "longitude": lon,
+                "daily": "precipitation_sum",
+                "hourly": "soil_moisture_0_to_1cm",
+                "forecast_days": 5,
+                "timezone": "auto",
+            }
+            try:
+                weather_response = await client.get(FORECAST_URL, params=weather_params)
+                weather_response.raise_for_status()
+            except Exception as exc:
+                logger.warning("Open-Meteo hourly soil forecast failed for %s; retrying daily precipitation only: %s", country, exc)
+                weather_params.pop("hourly", None)
+                weather_response = await client.get(FORECAST_URL, params=weather_params)
+                weather_response.raise_for_status()
             weather = weather_response.json()
 
         days = weather.get("daily", {}).get("time", [])
@@ -71,6 +76,7 @@ async def fetch_forecast(country: str, lat: float, lon: float, db: Session) -> l
         weather_failed = False
     except Exception as exc:
         logger.warning("Open-Meteo weather forecast failed for %s; returning low-risk fallback: %s", country, exc)
+        weather_error = str(exc)
         days = today_rows
         precip = [0.0] * 5
         soil_by_day = {}
@@ -106,7 +112,7 @@ async def fetch_forecast(country: str, lat: float, lon: float, db: Session) -> l
             likelihood = 0.5 * _normalize(rain, 0, 100) + 0.3 * soil_component + 0.2 * current_probability
         forecast_status = "fallback" if weather_failed else "weather_only" if river_failed else "ok"
         status_note = (
-            "Open-Meteo weather forecast failed; using conservative fallback rows."
+            f"Open-Meteo weather forecast failed; using conservative fallback rows. {weather_error}".strip()
             if weather_failed
             else river_note
         )

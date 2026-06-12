@@ -151,6 +151,44 @@ def test_forecast_weather_only_when_river_fails(monkeypatch):
     assert "weather inputs only" in rows[0]["status_note"]
 
 
+def test_forecast_retries_daily_weather_when_hourly_fails(monkeypatch):
+    from app.services import forecaster
+
+    class FakeResponse:
+        def __init__(self, payload):
+            self.payload = payload
+
+        def raise_for_status(self):
+            return None
+
+        def json(self):
+            return self.payload
+
+    class FakeClient:
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *_args):
+            return None
+
+        async def get(self, url, params):
+            if url == forecaster.FORECAST_URL and "hourly" in params:
+                raise RuntimeError("hourly unavailable")
+            if url == forecaster.FORECAST_URL:
+                return FakeResponse({"daily": {"time": ["2026-06-12"], "precipitation_sum": [9.0]}})
+            return FakeResponse({"daily": {"time": ["2026-06-12"], "river_discharge_mean": [100.0]}})
+
+    monkeypatch.setattr(forecaster.httpx, "AsyncClient", lambda **_kwargs: FakeClient())
+    response = client.post("/forecast", json={"country": "Bangladesh", "lat": 23.685, "lon": 90.3563})
+
+    assert response.status_code == 200
+    rows = response.json()
+    assert rows[0]["forecast_status"] == "ok"
+    assert rows[0]["precipitation_mm"] == 9.0
+    assert rows[0]["soil_moisture"] is None
+    assert rows[0]["river_discharge"] == 100.0
+
+
 def test_forecast_total_fallback_when_weather_fails(monkeypatch):
     from app.services import forecaster
 
@@ -171,7 +209,8 @@ def test_forecast_total_fallback_when_weather_fails(monkeypatch):
     rows = response.json()
     assert rows[0]["forecast_status"] == "fallback"
     assert rows[0]["data_source"] == "fallback"
-    assert rows[0]["status_note"] == "Open-Meteo weather forecast failed; using conservative fallback rows."
+    assert rows[0]["status_note"].startswith("Open-Meteo weather forecast failed; using conservative fallback rows.")
+    assert "network unavailable" in rows[0]["status_note"]
     assert rows[0]["flood_likelihood"] == 0.1
 
 
