@@ -1,5 +1,5 @@
 from collections import defaultdict
-from datetime import date, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 import logging
 
 import httpx
@@ -13,6 +13,8 @@ from app.services.risk import risk_level
 logger = logging.getLogger(__name__)
 FORECAST_URL = "https://api.open-meteo.com/v1/forecast"
 FLOOD_URL = "https://flood-api.open-meteo.com/v1/flood"
+FORECAST_CACHE_SECONDS = 1800
+_FORECAST_CACHE: dict[tuple[str, float, float], tuple[datetime, list[dict]]] = {}
 
 
 def _normalize(value: float | None, lo: float, hi: float) -> float:
@@ -43,6 +45,11 @@ def _daily_soil_means(payload: dict) -> dict[str, float]:
 
 async def fetch_forecast(country: str, lat: float, lon: float, db: Session) -> list[dict]:
     """Fetch Open-Meteo weather/flood data and compute five-day flood likelihood."""
+
+    cache_key = (country.lower(), round(lat, 4), round(lon, 4))
+    cached = _FORECAST_CACHE.get(cache_key)
+    if cached and (datetime.now(UTC) - cached[0]).total_seconds() < FORECAST_CACHE_SECONDS:
+        return [dict(row) for row in cached[1]]
 
     current_probability = _latest_prediction_probability(db, lat, lon)
     today_rows = [(date.today() + timedelta(days=i)).isoformat() for i in range(5)]
@@ -131,4 +138,13 @@ async def fetch_forecast(country: str, lat: float, lon: float, db: Session) -> l
                 "river_discharge_status": "unavailable" if river_failed else "available" if discharge is not None else "missing_for_day",
             }
         )
+    if not weather_failed:
+        _FORECAST_CACHE[cache_key] = (datetime.now(UTC), [dict(row) for row in rows])
+    elif cached:
+        stale_rows = [dict(row) for row in cached[1]]
+        for row in stale_rows:
+            row["forecast_status"] = "cached"
+            row["warning"] = True
+            row["status_note"] = f"Open-Meteo weather forecast failed; showing cached forecast from {cached[0].isoformat()} UTC."
+        return stale_rows
     return rows

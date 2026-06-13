@@ -74,6 +74,8 @@ def test_model_status_reports_sentinel_mode_when_credentials_exist(monkeypatch):
 def test_forecast_full_success(monkeypatch):
     from app.services import forecaster
 
+    forecaster._FORECAST_CACHE.clear()
+
     class FakeResponse:
         def __init__(self, payload):
             self.payload = payload
@@ -120,6 +122,8 @@ def test_forecast_full_success(monkeypatch):
 def test_forecast_weather_only_when_river_fails(monkeypatch):
     from app.services import forecaster
 
+    forecaster._FORECAST_CACHE.clear()
+
     class FakeResponse:
         def raise_for_status(self):
             return None
@@ -153,6 +157,8 @@ def test_forecast_weather_only_when_river_fails(monkeypatch):
 
 def test_forecast_retries_daily_weather_when_hourly_fails(monkeypatch):
     from app.services import forecaster
+
+    forecaster._FORECAST_CACHE.clear()
 
     class FakeResponse:
         def __init__(self, payload):
@@ -192,6 +198,8 @@ def test_forecast_retries_daily_weather_when_hourly_fails(monkeypatch):
 def test_forecast_total_fallback_when_weather_fails(monkeypatch):
     from app.services import forecaster
 
+    forecaster._FORECAST_CACHE.clear()
+
     class FakeClient:
         async def __aenter__(self):
             return self
@@ -212,6 +220,57 @@ def test_forecast_total_fallback_when_weather_fails(monkeypatch):
     assert rows[0]["status_note"].startswith("Open-Meteo weather forecast failed; using conservative fallback rows.")
     assert "network unavailable" in rows[0]["status_note"]
     assert rows[0]["flood_likelihood"] == 0.1
+
+
+def test_forecast_uses_recent_cached_rows_without_refetch(monkeypatch):
+    from app.services import forecaster
+
+    forecaster._FORECAST_CACHE.clear()
+
+    class FakeResponse:
+        def __init__(self, payload):
+            self.payload = payload
+
+        def raise_for_status(self):
+            return None
+
+        def json(self):
+            return self.payload
+
+    class SuccessfulClient:
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *_args):
+            return None
+
+        async def get(self, url, params):
+            if url == forecaster.FORECAST_URL:
+                return FakeResponse({"daily": {"time": ["2026-06-12"], "precipitation_sum": [14.0]}})
+            return FakeResponse({"daily": {"time": ["2026-06-12"], "river_discharge_mean": [120.0]}})
+
+    monkeypatch.setattr(forecaster.httpx, "AsyncClient", lambda **_kwargs: SuccessfulClient())
+    first_response = client.post("/forecast", json={"country": "Cacheland", "lat": 10.12345, "lon": 20.12345})
+    assert first_response.status_code == 200
+    assert first_response.json()[0]["forecast_status"] == "ok"
+
+    class FailingClient:
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *_args):
+            return None
+
+        async def get(self, url, params):
+            raise RuntimeError("rate limited")
+
+    monkeypatch.setattr(forecaster.httpx, "AsyncClient", lambda **_kwargs: FailingClient())
+    second_response = client.post("/forecast", json={"country": "Cacheland", "lat": 10.12345, "lon": 20.12345})
+
+    assert second_response.status_code == 200
+    rows = second_response.json()
+    assert rows[0]["forecast_status"] == "ok"
+    assert rows[0]["precipitation_mm"] == 14.0
 
 
 def test_scene_prediction_aggregation_resists_single_patch_spikes():
