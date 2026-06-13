@@ -6,13 +6,25 @@ import { api, type Hotspot, type Prediction, type Region } from "../api/client";
 
 type SelectedPlace = { country: string; lat: number; lon: number };
 type CountryResult = Prediction & SelectedPlace;
-type MapHotspot = Hotspot & { label: string; kind: "model" | "ground_truth" };
+type MapHotspot = Hotspot & { label: string; kind: "model" | "ground_truth" | "validation" };
 
 const GEOJSON_URL = "https://raw.githubusercontent.com/datasets/geo-countries/master/data/countries.geojson";
 
 const riskColor = (risk: string) => (risk === "High" ? "#dc2626" : risk === "Medium" ? "#d97706" : "#16a34a");
 const baselineColor = (risk: number) => (risk > 0.6 ? "#94a3b8" : risk >= 0.3 ? "#cbd5e1" : "#e2e8f0");
 const formatMode = (mode: string) => mode.replace(/_/g, " ");
+const validationColor = (floodClass?: string | null) => {
+  if (floodClass === "true_positive") return "#16a34a";
+  if (floodClass === "false_positive") return "#f97316";
+  if (floodClass === "false_negative") return "#dc2626";
+  if (floodClass === "true_negative") return "#64748b";
+  return "#8b5cf6";
+};
+const hotspotColor = (hotspot: MapHotspot) => {
+  if (hotspot.kind === "ground_truth") return "#0ea5e9";
+  if (hotspot.kind === "validation") return validationColor(hotspot.flood_class);
+  return riskColor(hotspot.risk_level);
+};
 
 function FlyTo({ lat, lon, focusNonce = 0 }: { lat: number; lon: number; focusNonce?: number }) {
   const map = useMap();
@@ -151,11 +163,11 @@ export default function FloodMap({
         <CircleMarker
           key={`${hotspot.kind}-${hotspot.lat}-${hotspot.lon}-${index}`}
           center={[hotspot.lat, hotspot.lon]}
-          radius={hotspot.kind === "ground_truth" ? 8 : 6}
+          radius={hotspot.kind === "ground_truth" ? 8 : hotspot.kind === "validation" ? 7 : 6}
           pathOptions={{
-            color: hotspot.kind === "ground_truth" ? "#38bdf8" : riskColor(hotspot.risk_level),
-            fillColor: hotspot.kind === "ground_truth" ? "#0ea5e9" : riskColor(hotspot.risk_level),
-            fillOpacity: hotspot.kind === "ground_truth" ? 0.82 : 0.72,
+            color: hotspot.kind === "ground_truth" ? "#38bdf8" : hotspotColor(hotspot),
+            fillColor: hotspotColor(hotspot),
+            fillOpacity: hotspot.kind === "ground_truth" ? 0.82 : 0.76,
             weight: 2,
             className: "hotspot-pulse",
           }}

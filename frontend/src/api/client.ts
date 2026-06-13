@@ -7,6 +7,7 @@ export type PaperResults = {
   confusion_matrices: Array<{ model: string; test_patches: number; missed_floods: number; false_positives: number }>;
   metric_audit: Array<{ item: string; table_a1_value?: number; resolved_value?: number; status: string; note: string }>;
   independent_validation: {
+    evidence_tiers?: Array<{ tier: string; source: string; role: string }>;
     source: {
       name: string;
       product_id: string;
@@ -25,6 +26,8 @@ export type PaperResults = {
     ground_truth: { patches: number; flooded_patches: number; flooded_percent: number; grid: string };
     metric_status: string;
     metric_note: string;
+    first_principles_note?: string;
+    patch_audit_artifact?: string;
     operational_fallback_audit?: {
       metric_status: string;
       sample: string;
@@ -114,6 +117,15 @@ export type ValidationScenario = {
   note: string;
   ground_truth_hotspots: Hotspot[];
   model_hotspots: Hotspot[];
+  validation_hotspots: Hotspot[];
+  validation_audit: {
+    artifact_status?: string;
+    publishable?: boolean;
+    artifact?: string;
+    patches?: number;
+    error_type_counts?: Record<string, number>;
+    note?: string;
+  };
   prediction: Prediction;
 };
 

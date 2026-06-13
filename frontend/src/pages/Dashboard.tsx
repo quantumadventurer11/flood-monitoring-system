@@ -87,10 +87,12 @@ export default function Dashboard({ onOpenForecast }: { onOpenForecast: (place: 
   const [modelStatusError, setModelStatusError] = useState<string | null>(null);
   const [statusMessage, setStatusMessage] = useState("Satellite terrain is visible underneath the country colors.");
   const [focusNonce, setFocusNonce] = useState(0);
+  const [mapMarkerMode, setMapMarkerMode] = useState<"scenario" | "validation">("scenario");
   const [openPanels, setOpenPanels] = useState<Record<string, boolean>>({
     map: true,
     model: true,
     risk: true,
+    quality: true,
     gauge: false,
     evidence: false,
     certainty: false,
@@ -191,11 +193,20 @@ export default function Dashboard({ onOpenForecast }: { onOpenForecast: (place: 
   );
 
   const mapHotspots = useMemo(
-    () => [
-      ...((scenario?.ground_truth_hotspots ?? []) as Hotspot[]).map((item) => ({ ...item, label: "UNOSAT ground-truth flood patch", kind: "ground_truth" as const })),
-      ...((scenario ? scenario.model_hotspots : prediction.hotspots ?? []) as Hotspot[]).slice(0, 8).map((item) => ({ ...item, label: "Model-indicated flood hotspot", kind: "model" as const })),
-    ],
-    [prediction.hotspots, scenario]
+    () => {
+      if (mapMarkerMode === "validation" && scenario?.validation_hotspots?.length) {
+        return scenario.validation_hotspots.map((item) => ({
+          ...item,
+          label: `Validation audit: ${(item.flood_class ?? item.risk_level).replace(/_/g, " ")}`,
+          kind: "validation" as const,
+        }));
+      }
+      return [
+        ...((scenario?.ground_truth_hotspots ?? []) as Hotspot[]).map((item) => ({ ...item, label: "UNOSAT ground-truth flood patch", kind: "ground_truth" as const })),
+        ...((scenario ? scenario.model_hotspots : prediction.hotspots ?? []) as Hotspot[]).slice(0, 8).map((item) => ({ ...item, label: "Model-indicated flood hotspot", kind: "model" as const })),
+      ];
+    },
+    [mapMarkerMode, prediction.hotspots, scenario]
   );
 
   const isFallback = prediction.validation_status.includes("fallback") || prediction.data_source === "fallback";
@@ -255,6 +266,7 @@ export default function Dashboard({ onOpenForecast }: { onOpenForecast: (place: 
           <div className="flex flex-wrap gap-2 text-xs">
             <span className="rounded-full border border-cyan-200 bg-cyan-50 px-2 py-1 font-semibold text-cyan-800 dark:border-cyan-800 dark:bg-cyan-950/40 dark:text-cyan-100">UNOSAT flood coordinate</span>
             <span className="rounded-full border border-red-200 bg-red-50 px-2 py-1 font-semibold text-red-800 dark:border-red-800 dark:bg-red-950/40 dark:text-red-100">Model hotspot</span>
+            {mapMarkerMode === "validation" && <span className="rounded-full border border-purple-200 bg-purple-50 px-2 py-1 font-semibold text-purple-800 dark:border-purple-800 dark:bg-purple-950/40 dark:text-purple-100">Validation class</span>}
           </div>
         </div>
         <FloodMap
@@ -280,10 +292,54 @@ export default function Dashboard({ onOpenForecast }: { onOpenForecast: (place: 
             </div>
           )}
           {scenario && (
-            <p className="mt-3 rounded border border-cyan-200 bg-cyan-50 px-3 py-2 text-xs text-cyan-900 dark:border-cyan-800 dark:bg-cyan-950/40 dark:text-cyan-100">
-              {scenario.title}: blue markers are local UNOSAT-derived flood coordinates. Click any marker to see its class, source details, and data fields.
-            </p>
+            <div className="mt-3 space-y-2">
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  className={`interactive-button rounded border px-3 py-2 text-xs font-semibold ${mapMarkerMode === "scenario" ? "border-cyan-300 bg-cyan-50 text-cyan-900 dark:border-cyan-700 dark:bg-cyan-950/50 dark:text-cyan-100" : "border-slate-200 text-slate-700 dark:border-slate-700 dark:text-slate-200"}`}
+                  onClick={() => setMapMarkerMode("scenario")}
+                  type="button"
+                >
+                  Ground truth / model
+                </button>
+                <button
+                  className={`interactive-button rounded border px-3 py-2 text-xs font-semibold ${mapMarkerMode === "validation" ? "border-purple-300 bg-purple-50 text-purple-900 dark:border-purple-700 dark:bg-purple-950/50 dark:text-purple-100" : "border-slate-200 text-slate-700 dark:border-slate-700 dark:text-slate-200"}`}
+                  onClick={() => setMapMarkerMode("validation")}
+                  type="button"
+                  disabled={!scenario.validation_hotspots?.length}
+                >
+                  Validation classes
+                </button>
+              </div>
+              <p className="rounded border border-cyan-200 bg-cyan-50 px-3 py-2 text-xs text-cyan-900 dark:border-cyan-800 dark:bg-cyan-950/40 dark:text-cyan-100">
+                {scenario.title}: markers come from local UNOSAT-derived flood coordinates and local audit artifacts only.
+              </p>
+            </div>
           )}
+        </CollapsiblePanel>
+        <CollapsiblePanel id="quality" title="Evidence Quality" icon={<ShieldCheck size={17} className="text-emerald-700 dark:text-emerald-300" />} open={openPanels.quality} onToggle={togglePanel}>
+          <div className="grid gap-2 text-xs">
+            <div className="flex items-center justify-between gap-3 rounded border border-slate-100 px-3 py-2 dark:border-slate-800">
+              <span className="font-semibold text-slate-700 dark:text-slate-300">Ground truth</span>
+              <span className="text-right text-cyan-700 dark:text-cyan-200">UNOSAT labels only</span>
+            </div>
+            <div className="flex items-center justify-between gap-3 rounded border border-slate-100 px-3 py-2 dark:border-slate-800">
+              <span className="font-semibold text-slate-700 dark:text-slate-300">Model signal</span>
+              <span className="text-right text-slate-600 dark:text-slate-300">{modelStatus?.data_mode === "copernicus_sentinel" ? "Sentinel-backed" : "Fallback/proxy"}</span>
+            </div>
+            <div className="flex items-center justify-between gap-3 rounded border border-slate-100 px-3 py-2 dark:border-slate-800">
+              <span className="font-semibold text-slate-700 dark:text-slate-300">Forecast</span>
+              <span className="text-right text-slate-600 dark:text-slate-300">Operational context</span>
+            </div>
+            <div className="flex items-center justify-between gap-3 rounded border border-slate-100 px-3 py-2 dark:border-slate-800">
+              <span className="font-semibold text-slate-700 dark:text-slate-300">Audit artifact</span>
+              <span className={`text-right font-semibold ${scenario?.validation_audit?.publishable ? "text-emerald-700 dark:text-emerald-300" : "text-amber-700 dark:text-amber-300"}`}>
+                {scenario?.validation_audit?.artifact_status?.replace(/_/g, " ") ?? "load Bangladesh test"}
+              </span>
+            </div>
+          </div>
+          <p className="mt-3 rounded border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-300">
+            Validation labels, model probabilities, and forecast inputs are tracked as separate evidence tiers.
+          </p>
         </CollapsiblePanel>
         <CollapsiblePanel id="model" title="Model Status" icon={backendFallback ? <AlertTriangle size={17} className="text-amber-700 dark:text-amber-300" /> : <ShieldCheck size={17} className="text-emerald-700 dark:text-emerald-300" />} open={openPanels.model} onToggle={togglePanel}>
           <div className="grid gap-2 text-sm">

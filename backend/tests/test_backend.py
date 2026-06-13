@@ -6,7 +6,7 @@ from fastapi.testclient import TestClient
 from app.api.routes.predict import patch_hotspots, summarize_scene_prediction
 from app.main import app
 from app.services.classifier import generate_synthetic_training_data, train
-from app.services.independent_validation import PatchLabel, summarize_validation
+from app.services.independent_validation import PatchLabel, build_patch_audit_rows, summarize_patch_audit, summarize_validation
 from app.services.preprocessing import compute_indices, extract_patch_features, label_patch, preprocess_scene
 from app.services.satellite import _surface_water_prior
 from seed_db import seed
@@ -23,6 +23,8 @@ def test_paper_results_exact_values():
     assert data["model_metrics"][0]["f1"] == 0.923
     assert data["independent_validation"]["source"]["event_code"] == "FL20240825BGD"
     assert data["independent_validation"]["ground_truth"]["flooded_percent"] == 3.12
+    assert data["independent_validation"]["evidence_tiers"][0]["tier"] == "Ground truth"
+    assert "independent evidence" in data["independent_validation"]["first_principles_note"]
     assert data["metric_audit"][0]["item"] == "SVM (RBF) ROC-AUC"
     assert len(data["modularity_evidence"]) >= 3
     reference = data["methodology_references"][0]
@@ -369,6 +371,8 @@ def test_bangladesh_2024_validation_scenario(monkeypatch):
     assert data["prediction"]["data_source"] == "local_unosat_ground_truth"
     assert data["prediction"]["operational_mode"] == "local_ground_truth_coordinate_scenario"
     assert data["prediction"]["publishable"] is True
+    assert "validation_audit" in data
+    assert "validation_hotspots" in data
 
 
 def test_surface_water_prior_has_arid_controls():
@@ -446,3 +450,40 @@ def test_independent_validation_summary_with_scores():
     assert summary["metric_status"] == "computed"
     assert summary["ndwi_threshold_metrics"]["roc_auc"] == 1.0
     assert summary["model_probability_metrics"]["confusion_matrix"] == {"tn": 2, "fp": 0, "fn": 0, "tp": 2}
+
+
+def test_patch_audit_rows_keep_labels_separate_from_scores():
+    labels = [
+        PatchLabel("UNOSAT-2024-00-00", 90.0, 23.0, 1),
+        PatchLabel("UNOSAT-2024-00-01", 90.1, 23.1, 0),
+        PatchLabel("UNOSAT-2024-00-02", 90.2, 23.2, 1),
+        PatchLabel("UNOSAT-2024-00-03", 90.3, 23.3, 0),
+    ]
+    scores = {
+        "UNOSAT-2024-00-00": {"ndwi_water_fraction": 0.01, "model_probability": 0.8},
+        "UNOSAT-2024-00-01": {"ndwi_water_fraction": 0.9, "model_probability": 0.7},
+        "UNOSAT-2024-00-02": {"ndwi_water_fraction": 0.8, "model_probability": 0.2},
+        "UNOSAT-2024-00-03": {"ndwi_water_fraction": 0.4, "model_probability": 0.1},
+    }
+
+    rows = build_patch_audit_rows(labels, scores)
+    summary = summarize_patch_audit(rows)
+
+    assert [row["error_type"] for row in rows] == ["true_positive", "false_positive", "false_negative", "true_negative"]
+    assert rows[1]["unosat_label"] == 0
+    assert rows[1]["ndwi_water_fraction"] == 0.9
+    assert rows[1]["prediction_class"] == 1
+    assert summary["error_type_counts"]["false_positive"] == 1
+    assert summary["publishable"] is True
+
+
+def test_patch_audit_without_scores_is_not_publishable():
+    labels = [PatchLabel("UNOSAT-2024-00-00", 90.0, 23.0, 1)]
+
+    rows = build_patch_audit_rows(labels)
+    summary = summarize_patch_audit(rows)
+
+    assert rows[0]["error_type"] == "score_missing"
+    assert rows[0]["prediction_class"] == "not_validation_ready"
+    assert summary["artifact_status"] == "scores_required"
+    assert summary["publishable"] is False

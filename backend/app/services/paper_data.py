@@ -44,6 +44,11 @@ PAPER_RESULTS = {
         },
     ],
     "independent_validation": {
+        "evidence_tiers": [
+            {"tier": "Ground truth", "source": "UNOSAT/Copernicus EMS flood maps", "role": "Validation labels only"},
+            {"tier": "Model signal", "source": "Sentinel-derived patch features and XGBoost probabilities", "role": "Flood classification score"},
+            {"tier": "Operational forecast", "source": "Open-Meteo rainfall, soil moisture, and discharge", "role": "Forecast context only"},
+        ],
         "source": {
             "name": "UNOSAT FL20240825BGD",
             "product_id": "3954",
@@ -67,6 +72,8 @@ PAPER_RESULTS = {
         },
         "metric_status": "scores_required",
         "metric_note": "UNOSAT labels are independent of NDWI. Publishable AUC/F1 values require real patch-level NDWI water fractions and model probabilities generated from Sentinel scenes, then passed to backend/scripts/validate_unosat_bangladesh.py with --scores-csv.",
+        "first_principles_note": "The system is optimized around independent evidence: labels come from external flood maps, model probabilities come from Sentinel features, and forecast context is kept separate from validation.",
+        "patch_audit_artifact": "backend/validation/audits/bangladesh_2024/patch_level_audit.csv",
         "operational_fallback_audit": {
             "metric_status": "computed_stratified_sample",
             "sample": "64 UNOSAT grid patches: 32 flooded and 32 non-flooded controls, evaluated on 2024-09-04 with the unauthenticated Open-Meteo fallback.",

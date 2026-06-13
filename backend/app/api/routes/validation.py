@@ -1,4 +1,6 @@
+import csv
 from datetime import date
+from pathlib import Path
 
 from fastapi import APIRouter
 
@@ -9,6 +11,8 @@ from app.services.independent_validation import (
 )
 
 router = APIRouter(prefix="/validation/scenarios", tags=["validation"])
+ROOT = Path(__file__).resolve().parents[3]
+BANGLADESH_AUDIT_CSV = ROOT / "validation" / "audits" / "bangladesh_2024" / "patch_level_audit.csv"
 
 
 @router.get("/bangladesh-2024", response_model=ValidationScenarioResponse)
@@ -62,6 +66,7 @@ async def bangladesh_2024_scenario() -> dict:
         "water_signal": None,
         "hotspots": ground_truth_hotspots,
     }
+    validation_hotspots, validation_audit = _validation_audit_markers()
 
     return {
         "key": "bangladesh_2024_unosat",
@@ -74,6 +79,8 @@ async def bangladesh_2024_scenario() -> dict:
         ),
         "ground_truth_hotspots": ground_truth_hotspots,
         "model_hotspots": [],
+        "validation_hotspots": validation_hotspots,
+        "validation_audit": validation_audit,
         "prediction": prediction,
     }
 
@@ -102,3 +109,68 @@ def _unosat_labels() -> list[PatchLabel]:
         )
         for index, (lon, lat) in enumerate(unosat_derived_centroids)
     ]
+
+
+def _validation_audit_markers() -> tuple[list[dict], dict]:
+    if not BANGLADESH_AUDIT_CSV.exists():
+        return [], {
+            "artifact_status": "scores_required",
+            "publishable": False,
+            "artifact": str(BANGLADESH_AUDIT_CSV.relative_to(ROOT)),
+            "note": "Patch-level audit CSV has not been generated yet. Run backend/scripts/validate_unosat_bangladesh.py with real patch scores.",
+        }
+
+    markers: list[dict] = []
+    counts: dict[str, int] = {}
+    with BANGLADESH_AUDIT_CSV.open(newline="", encoding="utf-8") as handle:
+        rows = list(csv.DictReader(handle))
+
+    for row in rows:
+        error_type = row.get("error_type") or "score_missing"
+        counts[error_type] = counts.get(error_type, 0) + 1
+        if len(markers) >= 24:
+            continue
+        if error_type == "true_negative":
+            continue
+        probability_text = row.get("model_probability")
+        probability = float(probability_text) if probability_text not in {None, ""} else 0.0
+        label = int(float(row.get("unosat_label") or 0))
+        markers.append(
+            {
+                "lat": float(row["lat"]),
+                "lon": float(row["lon"]),
+                "probability": probability,
+                "risk_level": error_type.replace("_", " ").title(),
+                "source": "local_patch_level_validation_audit",
+                "flood_class": error_type,
+                "details": {
+                    "patch_id": row.get("patch_id"),
+                    "error_type": error_type,
+                    "label_source": row.get("label_source"),
+                    "score_source": row.get("score_source"),
+                    "scene_date": row.get("scene_date"),
+                    "validation_type": "UNOSAT label compared with model probability",
+                },
+                "data": {
+                    "unosat_label": label,
+                    "ndwi_water_fraction": _optional_float(row.get("ndwi_water_fraction")),
+                    "model_probability": _optional_float(row.get("model_probability")),
+                    "prediction_class": row.get("prediction_class"),
+                },
+            }
+        )
+
+    return markers, {
+        "artifact_status": "computed" if rows and counts.get("score_missing", 0) == 0 else "scores_required",
+        "publishable": bool(rows) and counts.get("score_missing", 0) == 0,
+        "artifact": str(BANGLADESH_AUDIT_CSV.relative_to(ROOT)),
+        "patches": len(rows),
+        "error_type_counts": counts,
+        "note": "Validation classes use UNOSAT as ground truth and model_probability as prediction; NDWI is a feature column only.",
+    }
+
+
+def _optional_float(value: str | None) -> float | None:
+    if value in {None, ""}:
+        return None
+    return float(value)

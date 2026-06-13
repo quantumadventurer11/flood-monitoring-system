@@ -28,5 +28,21 @@
     "grid": "32x32 patch-centroid labels over the UNOSAT analysed extent"
   },
   "metric_status": "scores_required",
-  "metric_note": "Provide real patch-level NDWI water fractions and model probabilities with --scores-csv to compute publishable independent metrics."
+  "metric_note": "Provide real patch-level NDWI water fractions and model probabilities with --scores-csv to compute publishable independent metrics.",
+  "patch_audit": {
+    "artifact_status": "scores_required",
+    "patches": 1024,
+    "scored_patches": 0,
+    "flooded_patches": 32,
+    "error_type_counts": {
+      "score_missing": 1024
+    },
+    "evidence_tiers": [
+      "ground_truth: UNOSAT flood labels only",
+      "model_signal: Sentinel-derived NDWI/features and XGBoost probabilities when supplied",
+      "operational_forecast: Open-Meteo context only, not validation"
+    ],
+    "publishable": false,
+    "note": "Patch labels come from UNOSAT. NDWI water fraction and model probability are audited as independent score columns, never as label sources."
+  }
 }

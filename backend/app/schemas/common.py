@@ -98,6 +98,8 @@ class ValidationScenarioResponse(BaseModel):
     note: str
     ground_truth_hotspots: list[HotspotOut]
     model_hotspots: list[HotspotOut]
+    validation_hotspots: list[HotspotOut] = []
+    validation_audit: dict[str, str | int | float | bool | dict | list | None] = {}
     prediction: PredictResponse
 
 

@@ -52,8 +52,25 @@ export default function Methodology() {
           <div className="grid gap-4 md:grid-cols-[1fr_220px]">
             <div className="space-y-2 text-sm text-slate-700 dark:text-slate-300">
               <p className="font-semibold text-slate-900 dark:text-slate-100">{data.independent_validation.source.name}: {data.independent_validation.source.title}</p>
+              {data.independent_validation.first_principles_note && (
+                <p className="rounded-lg border border-blue-200 bg-blue-50 p-3 text-blue-900 dark:border-blue-800 dark:bg-blue-950/40 dark:text-blue-100">{data.independent_validation.first_principles_note}</p>
+              )}
+              {data.independent_validation.evidence_tiers && (
+                <div className="grid gap-2 md:grid-cols-3">
+                  {data.independent_validation.evidence_tiers.map((tier) => (
+                    <div key={tier.tier} className="rounded-lg border border-slate-200 bg-white p-3 dark:border-slate-800 dark:bg-slate-950">
+                      <p className="font-semibold text-slate-900 dark:text-slate-100">{tier.tier}</p>
+                      <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">{tier.source}</p>
+                      <p className="mt-2 text-xs font-semibold text-blue-700 dark:text-cyan-300">{tier.role}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
               <p>Sensor: {data.independent_validation.source.sensor}. Acquisition window: {data.independent_validation.source.acquisition_window}. Published: {data.independent_validation.source.published}.</p>
               <p>{data.independent_validation.metric_note}</p>
+              {data.independent_validation.patch_audit_artifact && (
+                <p className="rounded border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-300">Patch-level audit artifact: {data.independent_validation.patch_audit_artifact}</p>
+              )}
               {data.independent_validation.operational_fallback_audit && (
                 <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-amber-900">
                   <p className="font-semibold">Operational fallback audit</p>

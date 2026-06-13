@@ -94,12 +94,18 @@ Table A1 and Table 3 values are treated as authoritative where PDF prose conflic
 
 ## Independent Validation Audit
 
-The app documents UNOSAT FL20240825BGD as the independent validation source for the 2024 Bangladesh floods. The bundled validation script downloads the UNOSAT shapefile, converts the flood polygons into regular patch-centroid labels, and writes an audit JSON:
+The app documents UNOSAT FL20240825BGD as the independent validation source for the 2024 Bangladesh floods. The bundled validation script downloads the UNOSAT shapefile, converts the flood polygons into regular patch-centroid labels, and writes both summary and patch-level audit artifacts:
 
 ```bash
 cd backend
 python scripts/validate_unosat_bangladesh.py
 ```
+
+Default artifacts:
+
+- `backend/validation/unosat_bangladesh_2024_summary.json`
+- `backend/validation/audits/bangladesh_2024/summary.json`
+- `backend/validation/audits/bangladesh_2024/patch_level_audit.csv`
 
 To compute publishable validation metrics, provide a CSV containing real patch-level scores generated independently from the UNOSAT labels:
 
@@ -108,6 +114,14 @@ python scripts/validate_unosat_bangladesh.py --scores-csv path/to/patch_scores.c
 ```
 
 The CSV must contain `patch_id`, `ndwi_water_fraction`, and `model_probability`. NDWI-derived water fraction is treated as a feature or score, not as the ground-truth label.
+
+The patch audit CSV keeps the evidence tiers separate:
+
+- UNOSAT/Copernicus EMS flood maps provide validation labels.
+- Sentinel-derived NDWI/features and XGBoost probabilities provide model signal.
+- Open-Meteo rainfall, soil moisture, and discharge provide operational forecast context only.
+
+When scores are supplied, each patch receives an `error_type`: `true_positive`, `false_positive`, `false_negative`, or `true_negative`. When scores are missing, patches are marked `score_missing` and the artifact is not publishable.
 
 ## Deployment
 

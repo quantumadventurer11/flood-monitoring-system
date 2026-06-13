@@ -197,6 +197,75 @@ def _roc_auc(y_true: np.ndarray, scores: np.ndarray) -> float:
     return wins / float(positives.size * negatives.size)
 
 
+def classify_patch_error(label: int, probability: float | None, threshold: float = 0.5) -> str:
+    """Return validation class using only UNOSAT as label and model score as prediction."""
+
+    if probability is None:
+        return "score_missing"
+    predicted = int(probability >= threshold)
+    if label == 1 and predicted == 1:
+        return "true_positive"
+    if label == 0 and predicted == 1:
+        return "false_positive"
+    if label == 1 and predicted == 0:
+        return "false_negative"
+    return "true_negative"
+
+
+def build_patch_audit_rows(labels: list[PatchLabel], scores: dict[str, dict[str, float]] | None = None, threshold: float = 0.5) -> list[dict]:
+    """Build per-patch audit rows for independent validation artifacts."""
+
+    rows = []
+    min_lon, min_lat, max_lon, max_lat = UNOSAT_BANGLADESH_2024["bbox"]
+    for label in labels:
+        score = scores.get(label.patch_id) if scores else None
+        model_probability = score.get("model_probability") if score else None
+        ndwi_water_fraction = score.get("ndwi_water_fraction") if score else None
+        error_type = classify_patch_error(label.label, model_probability, threshold=threshold)
+        rows.append(
+            {
+                "patch_id": label.patch_id,
+                "lat": round(label.lat, 6),
+                "lon": round(label.lon, 6),
+                "scene_date": "2024-09-04",
+                "scene_bounds": f"{min_lon},{min_lat},{max_lon},{max_lat}",
+                "unosat_label": label.label,
+                "ndwi_water_fraction": ndwi_water_fraction,
+                "model_probability": model_probability,
+                "prediction_class": "not_validation_ready" if model_probability is None else int(model_probability >= threshold),
+                "error_type": error_type,
+                "label_source": UNOSAT_BANGLADESH_2024["event_code"],
+                "score_source": "provided_patch_score_csv" if score else "score_missing",
+            }
+        )
+    return rows
+
+
+def summarize_patch_audit(rows: list[dict]) -> dict:
+    """Summarize patch-level validation artifact readiness and error classes."""
+
+    counts: dict[str, int] = {}
+    for row in rows:
+        key = str(row["error_type"])
+        counts[key] = counts.get(key, 0) + 1
+    scored_rows = [row for row in rows if row["model_probability"] is not None]
+    flooded = [row for row in rows if int(row["unosat_label"]) == 1]
+    return {
+        "artifact_status": "computed" if scored_rows else "scores_required",
+        "patches": len(rows),
+        "scored_patches": len(scored_rows),
+        "flooded_patches": len(flooded),
+        "error_type_counts": counts,
+        "evidence_tiers": [
+            "ground_truth: UNOSAT flood labels only",
+            "model_signal: Sentinel-derived NDWI/features and XGBoost probabilities when supplied",
+            "operational_forecast: Open-Meteo context only, not validation",
+        ],
+        "publishable": bool(scored_rows) and not counts.get("score_missing"),
+        "note": "Patch labels come from UNOSAT. NDWI water fraction and model probability are audited as independent score columns, never as label sources.",
+    }
+
+
 def summarize_validation(labels: list[PatchLabel], scores: dict[str, dict[str, float]] | None = None) -> dict:
     """Build an audit summary, adding metrics when real patch scores are supplied."""
 
@@ -231,6 +300,28 @@ def summarize_validation(labels: list[PatchLabel], scores: dict[str, dict[str, f
         }
     )
     return summary
+
+
+def write_patch_audit(rows: list[dict], output_path: Path) -> None:
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    fieldnames = [
+        "patch_id",
+        "lat",
+        "lon",
+        "scene_date",
+        "scene_bounds",
+        "unosat_label",
+        "ndwi_water_fraction",
+        "model_probability",
+        "prediction_class",
+        "error_type",
+        "label_source",
+        "score_source",
+    ]
+    with output_path.open("w", newline="", encoding="utf-8") as handle:
+        writer = csv.DictWriter(handle, fieldnames=fieldnames)
+        writer.writeheader()
+        writer.writerows(rows)
 
 
 def write_summary(summary: dict, output_path: Path) -> None:
