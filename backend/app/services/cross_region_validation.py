@@ -245,7 +245,7 @@ def write_cross_region_outputs(report: dict, output_dir: Path) -> None:
 
     output_dir.mkdir(parents=True, exist_ok=True)
     (output_dir / "summary.json").write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
-    _write_events_csv(report["events"], output_dir / "summary.csv")
+    _write_events_csv(report["events"], report["overall"], output_dir / "summary.csv")
     _write_markdown_summary(report, output_dir / "summary.md")
 
 
@@ -302,13 +302,33 @@ def _overall_metrics(scores_dir: Path, computed_events: list[dict]) -> dict | No
     return {"patches": len(labels), **binary_metrics(labels, scores), "time_seconds": round(total_time, 4)}
 
 
-def _write_events_csv(events: list[dict], path: Path) -> None:
+def _write_events_csv(events: list[dict], overall: dict | None, path: Path) -> None:
     fieldnames = ["location", "event_period", "reference_saved", "ground_truth_source", "label_status", "prediction_status", "patches", "auc_roc", "accuracy", "precision", "recall", "f1", "time_seconds", "metric_status", "blocker"]
     with path.open("w", newline="", encoding="utf-8") as handle:
         writer = csv.DictWriter(handle, fieldnames=fieldnames)
         writer.writeheader()
         for event in events:
             writer.writerow({name: event.get(name) for name in fieldnames})
+        if overall:
+            writer.writerow(
+                {
+                    "location": "Overall",
+                    "event_period": "Combined",
+                    "reference_saved": True,
+                    "ground_truth_source": "Combined official geospatial labels",
+                    "label_status": "ready",
+                    "prediction_status": "ready",
+                    "patches": overall.get("patches"),
+                    "auc_roc": overall.get("auc_roc"),
+                    "accuracy": overall.get("accuracy"),
+                    "precision": overall.get("precision"),
+                    "recall": overall.get("recall"),
+                    "f1": overall.get("f1"),
+                    "time_seconds": overall.get("time_seconds"),
+                    "metric_status": "computed",
+                    "blocker": None,
+                }
+            )
 
 
 def _write_markdown_summary(report: dict, path: Path) -> None:
@@ -320,6 +340,13 @@ def _write_markdown_summary(report: dict, path: Path) -> None:
         rows.append(
             "| {location} | {event_period} | {reference_saved} | {label_status} | {prediction_status} | {patches} | {auc_roc} | {accuracy} | {precision} | {recall} | {f1} | {time_seconds} | {metric_status} |".format(
                 **{key: _display(value) for key, value in event.items()}
+            )
+        )
+    overall = report.get("overall")
+    if overall:
+        rows.append(
+            "| Overall | Combined | True | ready | ready | {patches} | {auc_roc} | {accuracy} | {precision} | {recall} | {f1} | {time_seconds} | computed |".format(
+                **{key: _display(value) for key, value in overall.items()}
             )
         )
     blockers = "\n".join(f"- {blocker}" for blocker in report["blockers"]) or "- None"

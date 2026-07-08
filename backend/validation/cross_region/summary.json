@@ -1,6 +1,6 @@
 {
-  "metric_status": "scores_required",
-  "publishable": false,
+  "metric_status": "computed",
+  "publishable": true,
   "references_file": "references",
   "scores_dir": "backend\\validation\\cross_region\\scores",
   "events": [
@@ -53,20 +53,26 @@
       "ground_truth_source": "UNOSAT/Copernicus flood extent product to be converted to patch labels",
       "ground_truth_url": "Locate product titled 'Satellite detected water extents between 03 and 23 August 2022 over Pakistan'",
       "label_file": "backend\\validation\\cross_region\\labels\\pakistan_2022_ground_truth_labels.csv",
-      "label_status": "missing",
+      "label_status": "ready",
       "prediction_file": "backend\\validation\\cross_region\\predictions\\pakistan_2022_sentinel_predictions.csv",
-      "prediction_status": "missing",
+      "prediction_status": "ready",
       "score_file": "backend\\validation\\cross_region\\scores\\pakistan_2022_patch_scores.csv",
-      "metric_status": "scores_required",
-      "publishable": false,
-      "patches": null,
-      "auc_roc": null,
-      "accuracy": null,
-      "precision": null,
-      "recall": null,
-      "f1": null,
-      "time_seconds": null,
-      "blocker": "Missing real patch-score CSV with ground_truth_label and model_probability columns."
+      "metric_status": "computed",
+      "publishable": true,
+      "patches": 1024,
+      "auc_roc": 0.5615,
+      "accuracy": 0.4658,
+      "precision": 0.25,
+      "recall": 0.6638,
+      "f1": 0.3632,
+      "confusion_matrix": {
+        "tn": 321,
+        "fp": 468,
+        "fn": 79,
+        "tp": 156
+      },
+      "time_seconds": 4162.4224,
+      "blocker": null
     },
     {
       "key": "mozambique_2023",
@@ -82,36 +88,42 @@
       "ground_truth_source": "UNOSAT/Copernicus flood extent product to be converted to patch labels",
       "ground_truth_url": "Locate product titled 'Satellite detected water extent over Sofala and Zambezia Provinces, Mozambique as of 13 Mar. 2023'",
       "label_file": "backend\\validation\\cross_region\\labels\\mozambique_2023_ground_truth_labels.csv",
-      "label_status": "missing",
+      "label_status": "ready",
       "prediction_file": "backend\\validation\\cross_region\\predictions\\mozambique_2023_sentinel_predictions.csv",
-      "prediction_status": "missing",
+      "prediction_status": "ready",
       "score_file": "backend\\validation\\cross_region\\scores\\mozambique_2023_patch_scores.csv",
-      "metric_status": "scores_required",
-      "publishable": false,
-      "patches": null,
-      "auc_roc": null,
-      "accuracy": null,
-      "precision": null,
-      "recall": null,
-      "f1": null,
-      "time_seconds": null,
-      "blocker": "Missing real patch-score CSV with ground_truth_label and model_probability columns."
+      "metric_status": "computed",
+      "publishable": true,
+      "patches": 1024,
+      "auc_roc": 0.6738,
+      "accuracy": 0.0518,
+      "precision": 0.0518,
+      "recall": 1.0,
+      "f1": 0.0984,
+      "confusion_matrix": {
+        "tn": 0,
+        "fp": 971,
+        "fn": 0,
+        "tp": 53
+      },
+      "time_seconds": 10164.3664,
+      "blocker": null
     }
   ],
   "overall": {
-    "patches": 35,
-    "auc_roc": 0.7576,
-    "accuracy": 0.5429,
-    "precision": 0.1111,
-    "recall": 1.0,
-    "f1": 0.2,
+    "patches": 2083,
+    "auc_roc": 0.3679,
+    "accuracy": 0.2636,
+    "precision": 0.1267,
+    "recall": 0.7276,
+    "f1": 0.2157,
     "confusion_matrix": {
-      "tn": 17,
-      "fp": 16,
-      "fn": 0,
-      "tp": 2
+      "tn": 338,
+      "fp": 1455,
+      "fn": 79,
+      "tp": 211
     },
-    "time_seconds": 245.9402
+    "time_seconds": 14572.729
   },
   "health": {
     "status": "pass",
@@ -144,11 +156,6 @@
     ],
     "validation_note": "App health passing does not make fallback proxy predictions publishable; real Sentinel-backed scores and geospatial labels are still required."
   },
-  "blockers": [
-    "Missing real patch-score CSV with ground_truth_label and model_probability columns.",
-    "Missing real patch-score CSV with ground_truth_label and model_probability columns."
-  ],
-  "fix_plan": [
-    "Generate final patch-score CSVs by spatially joining ground-truth label CSVs with Sentinel-backed prediction CSVs for each event."
-  ]
+  "blockers": [],
+  "fix_plan": []
 }

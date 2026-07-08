@@ -18,8 +18,8 @@
       "status": "ready",
       "label_file": "validation\\cross_region\\labels\\pakistan_2022_ground_truth_labels.csv",
       "patches": 1024,
-      "flooded_patches": 590,
-      "non_flooded_patches": 434,
+      "flooded_patches": 235,
+      "non_flooded_patches": 789,
       "buffer_km": 50.0,
       "source": "validation\\cross_region\\official_sources\\pakistan_2022.zip",
       "blocker": null
@@ -27,14 +27,14 @@
     {
       "key": "mozambique_2023",
       "location": "Mozambique",
-      "status": "needs_review",
+      "status": "ready",
       "label_file": "validation\\cross_region\\labels\\mozambique_2023_ground_truth_labels.csv",
       "patches": 1024,
-      "flooded_patches": 0,
-      "non_flooded_patches": 1024,
+      "flooded_patches": 53,
+      "non_flooded_patches": 971,
       "buffer_km": 50.0,
       "source": "validation\\cross_region\\official_sources\\mozambique_2023.zip",
-      "blocker": "Official source loaded, but the 50 km grid does not contain both flooded and non-flooded labels."
+      "blocker": null
     }
   ]
 }

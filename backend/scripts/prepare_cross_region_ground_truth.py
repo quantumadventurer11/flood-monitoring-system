@@ -218,7 +218,8 @@ def _load_zipped_shapefile_polygons(path: Path) -> list[list[tuple[float, float]
     import io
 
     with zipfile.ZipFile(path) as archive:
-        members = {Path(name).suffix.lower(): name for name in archive.namelist() if Path(name).suffix.lower() in {".shp", ".shx", ".dbf"}}
+        base = _select_shapefile_base(archive, path)
+        members = {suffix: f"{base}{suffix}" for suffix in [".shp", ".shx", ".dbf"]}
         missing = {".shp", ".shx", ".dbf"} - members.keys()
         if missing:
             raise FileNotFoundError(f"{path} is missing shapefile member(s): {', '.join(sorted(missing))}")
@@ -236,6 +237,41 @@ def _load_zipped_shapefile_polygons(path: Path) -> list[list[tuple[float, float]
                 if len(ring) >= 3:
                     polygons.append(ring)
         return polygons
+
+
+def _select_shapefile_base(archive: zipfile.ZipFile, source_path: Path) -> str:
+    suffixes = {".shp", ".shx", ".dbf"}
+    grouped: dict[str, set[str]] = {}
+    for name in archive.namelist():
+        suffix = Path(name).suffix.lower()
+        if suffix in suffixes:
+            grouped.setdefault(name[: -len(suffix)], set()).add(suffix)
+
+    complete = [base for base, available in grouped.items() if suffixes.issubset(available)]
+    if not complete:
+        raise FileNotFoundError(f"{source_path} does not contain a complete shapefile")
+
+    source_name = source_path.name.lower()
+    preferred_tokens: list[str] = []
+    if "pakistan_2022" in source_name:
+        preferred_tokens = ["viirs_20220803_20220823_floodextent_pak"]
+    elif "mozambique_2023" in source_name:
+        preferred_tokens = ["rcm2_20230313_zambezia_floodextent"]
+
+    def score(base: str) -> tuple[int, str]:
+        lower = base.lower()
+        value = 0
+        if any(token in lower for token in preferred_tokens):
+            value += 1000
+        if "floodextent" in lower:
+            value += 100
+        if "waterextent" in lower:
+            value += 50
+        if "analysisextent" in lower or "cloudobstruction" in lower:
+            value -= 100
+        return value, lower
+
+    return max(complete, key=score)
 
 
 def _point_in_polygon(lon: float, lat: float, ring: list[tuple[float, float]]) -> bool:

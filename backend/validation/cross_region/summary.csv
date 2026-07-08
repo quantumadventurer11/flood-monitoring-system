@@ -1,4 +1,5 @@
 location,event_period,reference_saved,ground_truth_source,label_status,prediction_status,patches,auc_roc,accuracy,precision,recall,f1,time_seconds,metric_status,blocker
 Bangladesh,2024-08-28 to 2024-09-04,True,UNOSAT FL20240825BGD product 3954,ready,ready,35,0.7576,0.5429,0.1111,1.0,0.2,245.9402,computed,
-Pakistan,2022-08-03 to 2022-08-23,True,UNOSAT/Copernicus flood extent product to be converted to patch labels,missing,missing,,,,,,,,scores_required,Missing real patch-score CSV with ground_truth_label and model_probability columns.
-Mozambique,2023-03-11 to 2023-03-15,True,UNOSAT/Copernicus flood extent product to be converted to patch labels,missing,missing,,,,,,,,scores_required,Missing real patch-score CSV with ground_truth_label and model_probability columns.
+Pakistan,2022-08-03 to 2022-08-23,True,UNOSAT/Copernicus flood extent product to be converted to patch labels,ready,ready,1024,0.5615,0.4658,0.25,0.6638,0.3632,4162.4224,computed,
+Mozambique,2023-03-11 to 2023-03-15,True,UNOSAT/Copernicus flood extent product to be converted to patch labels,ready,ready,1024,0.6738,0.0518,0.0518,1.0,0.0984,10164.3664,computed,
+Overall,Combined,True,Combined official geospatial labels,ready,ready,2083,0.3679,0.2636,0.1267,0.7276,0.2157,14572.729,computed,
