@@ -1,0 +1,40 @@
+{
+  "events": [
+    {
+      "key": "bangladesh_2024",
+      "location": "Bangladesh",
+      "status": "ready",
+      "label_file": "validation\\cross_region\\labels\\bangladesh_2024_ground_truth_labels.csv",
+      "patches": 35,
+      "flooded_patches": 2,
+      "non_flooded_patches": 33,
+      "buffer_km": 50.0,
+      "source": "validation\\audits\\bangladesh_2024\\patch_level_audit.csv",
+      "blocker": null
+    },
+    {
+      "key": "pakistan_2022",
+      "location": "Pakistan",
+      "status": "ready",
+      "label_file": "validation\\cross_region\\labels\\pakistan_2022_ground_truth_labels.csv",
+      "patches": 1024,
+      "flooded_patches": 590,
+      "non_flooded_patches": 434,
+      "buffer_km": 50.0,
+      "source": "validation\\cross_region\\official_sources\\pakistan_2022.zip",
+      "blocker": null
+    },
+    {
+      "key": "mozambique_2023",
+      "location": "Mozambique",
+      "status": "needs_review",
+      "label_file": "validation\\cross_region\\labels\\mozambique_2023_ground_truth_labels.csv",
+      "patches": 1024,
+      "flooded_patches": 0,
+      "non_flooded_patches": 1024,
+      "buffer_km": 50.0,
+      "source": "validation\\cross_region\\official_sources\\mozambique_2023.zip",
+      "blocker": "Official source loaded, but the 50 km grid does not contain both flooded and non-flooded labels."
+    }
+  ]
+}

@@ -10,7 +10,7 @@ router = APIRouter(prefix="/paper-results", tags=["paper-results"])
 
 @router.get("")
 def get_paper_results(db: Session = Depends(get_db)) -> dict:
-    """Return seeded methodology figures, tables, metrics, and notes from the paper."""
+    """Return paper/validation figures with explicit real-vs-simulated status fields."""
 
     rows = db.query(PaperResult).all()
     if not rows:

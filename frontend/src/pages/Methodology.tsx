@@ -39,14 +39,14 @@ export default function Methodology() {
       </aside>
       <div className="space-y-5">
         <Section id="abstract" title="Abstract Summary">
-          <p className="text-slate-700 dark:text-slate-300">The paper proposes a binary flood detection framework for central Bangladesh that fuses Sentinel-2 optical features (B4, NDVI, NDWI) with Sentinel-1 VV SAR data. A 50 km Dhaka buffer, cloud masking, NDWI water features, 64x64 patch extraction, and 61 engineered features support XGBoost classification with ROC-AUC 0.9985 on the original August 2024 test set. External validation now uses UNOSAT flood extents as labels instead of NDWI-derived labels.</p>
+          <p className="text-slate-700 dark:text-slate-300">The current validation pass tests Bangladesh 2024 flood detection against independent UNOSAT FL20240825BGD labels. The XGBoost model now excludes NDWI-derived inputs and uses 45 non-NDWI Sentinel features; NDWI water fraction is retained only as an audited score for comparison, not as a training input or label source.</p>
         </Section>
         <Section id="workflow" title="Fig. 1: Workflow Diagram" caption="Overview of the proposed flood monitoring workflow."><WorkflowDiagram /></Section>
-        <Section id="ndwi" title="Fig. 2: NDWI Water Features" caption="NDWI is retained as a model feature; external validation labels come from independent flood maps."><NDWIMask /></Section>
+        <Section id="ndwi" title="Fig. 2: NDWI Water Features" caption="NDWI is audited as a water signal; external validation labels come from independent UNOSAT flood maps."><NDWIMask /></Section>
         <Section id="patches" title="Fig. 3: Patch Grid" caption="Examples of extracted image patches showing flood and non-flood regions used for supervised classification."><PatchGrid /></Section>
         <Section id="distribution" title="Fig. 4: Pixel Distribution Chart" caption="Pixel value distribution used for NDWI threshold selection and flood discrimination."><PixelDistribution /></Section>
         <Section id="dataset" title="Table 2: Dataset Summary"><DatasetTable rows={data.dataset_stats} /></Section>
-        <Section id="roc" title="Fig. 5: ROC Curve Chart" caption="ROC curve comparison of evaluated flood detection models."><ROCCurveChart /></Section>
+        <Section id="roc" title="Fig. 5: ROC Curve Chart" caption="Synthetic comparison curves retained for context only; not publishable validation evidence."><ROCCurveChart /></Section>
         <Section id="metrics" title="Table A1: Full Model Performance"><ModelMetricsTable rows={data.model_metrics} /></Section>
         <Section id="validation" title="Independent Validation Source">
           <div className="grid gap-4 md:grid-cols-[1fr_220px]">
@@ -68,6 +68,15 @@ export default function Methodology() {
               )}
               <p>Sensor: {data.independent_validation.source.sensor}. Acquisition window: {data.independent_validation.source.acquisition_window}. Published: {data.independent_validation.source.published}.</p>
               <p>{data.independent_validation.metric_note}</p>
+              {data.independent_validation.model_probability_metrics && (
+                <div className="grid gap-2 rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-emerald-950 md:grid-cols-5">
+                  <div><p className="text-xs font-semibold">AUC ROC</p><p className="text-lg font-bold">{data.independent_validation.model_probability_metrics.roc_auc.toFixed(4)}</p></div>
+                  <div><p className="text-xs font-semibold">Accuracy</p><p className="text-lg font-bold">{data.independent_validation.model_probability_metrics.accuracy.toFixed(4)}</p></div>
+                  <div><p className="text-xs font-semibold">Precision</p><p className="text-lg font-bold">{data.independent_validation.model_probability_metrics.precision.toFixed(4)}</p></div>
+                  <div><p className="text-xs font-semibold">Recall</p><p className="text-lg font-bold">{data.independent_validation.model_probability_metrics.recall.toFixed(4)}</p></div>
+                  <div><p className="text-xs font-semibold">F1</p><p className="text-lg font-bold">{data.independent_validation.model_probability_metrics.f1.toFixed(4)}</p></div>
+                </div>
+              )}
               {data.independent_validation.patch_audit_artifact && (
                 <p className="rounded border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-300">Patch-level audit artifact: {data.independent_validation.patch_audit_artifact}</p>
               )}
@@ -141,23 +150,23 @@ export default function Methodology() {
             {data.modularity_evidence.map((item) => <li key={item} className="rounded-lg border border-slate-200 bg-white p-3 dark:border-slate-800 dark:bg-slate-950">{item}</li>)}
           </ul>
         </Section>
-        <Section id="ablation" title="Table 3: Ablation Study"><AblationTable rows={data.ablation_results} /></Section>
+        <Section id="ablation" title="UNOSAT Label-Margin Ablation"><AblationTable rows={data.ablation_results} /></Section>
         <Section id="findings" title="Key Findings And Limitations">
           <div className="grid gap-4 md:grid-cols-2">
             <div>
               <h3 className="font-semibold text-slate-800 dark:text-slate-100">Key findings</h3>
               <ul className="mt-2 space-y-2 text-sm text-slate-700 dark:text-slate-300">
-                <li>XGBoost is the best structured-feature baseline.</li>
-                <li>NDWI_p95 is the top-ranked feature.</li>
-                <li>Water fraction is powerful but raises label circularity concerns.</li>
+                <li>The current NDWI-free XGBoost pass is real but weak: AUC ROC 0.3681 and F1 0.0629.</li>
+                <li>The dominant failure case is over-prediction: 953 false positives at the default threshold.</li>
+                <li>NDWI water fraction is now separated from the model input and audited against UNOSAT labels.</li>
               </ul>
             </div>
             <div>
               <h3 className="font-semibold text-slate-800 dark:text-slate-100">Future work</h3>
               <ul className="mt-2 space-y-2 text-sm text-slate-700 dark:text-slate-300">
-                <li>Validate across additional flood regions and seasons.</li>
-                <li>Separate label-generation signals from model features.</li>
-                <li>Replace simulated fallback visuals with live Sentinel tiles when available.</li>
+                <li>Retrain on real labeled multi-region data, not synthetic first-run data.</li>
+                <li>Add land-cover evidence to test built-up and dense-vegetation failure hypotheses.</li>
+                <li>Replace simulated comparison curves with real ROC points from scored validation folds.</li>
               </ul>
             </div>
           </div>

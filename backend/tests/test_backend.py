@@ -6,6 +6,7 @@ from fastapi.testclient import TestClient
 from app.api.routes.predict import patch_hotspots, summarize_scene_prediction
 from app.main import app
 from app.services.classifier import generate_synthetic_training_data, train
+from app.services.cross_region_validation import binary_metrics, build_cross_region_report, evaluate_event, VALIDATION_EVENTS
 from app.services.independent_validation import PatchLabel, build_patch_audit_rows, summarize_patch_audit, summarize_validation
 from app.services.preprocessing import compute_indices, extract_patch_features, label_patch, preprocess_scene
 from app.services.satellite import _surface_water_prior
@@ -20,7 +21,8 @@ def test_paper_results_exact_values():
     data = client.get("/paper-results").json()
     assert data["dataset_stats"][0]["total_patches"] == 2630
     assert data["model_metrics"][0]["model"] == "XGBoost"
-    assert data["model_metrics"][0]["f1"] == 0.923
+    assert data["model_metrics"][0]["f1"] == 0.0629
+    assert data["model_metrics"][0]["result_status"] == "REAL_UNOSAT_VALIDATION"
     assert data["independent_validation"]["source"]["event_code"] == "FL20240825BGD"
     assert data["independent_validation"]["ground_truth"]["flooded_percent"] == 3.12
     assert data["independent_validation"]["evidence_tiers"][0]["tier"] == "Ground truth"
@@ -375,6 +377,93 @@ def test_bangladesh_2024_validation_scenario(monkeypatch):
     assert "validation_hotspots" in data
 
 
+def test_cross_region_validation_reports_missing_real_scores(tmp_path, monkeypatch):
+    from app.services import cross_region_validation
+
+    monkeypatch.setattr(cross_region_validation, "REFERENCES_PATH", tmp_path / "references")
+    report = build_cross_region_report(tmp_path)
+
+    assert report["metric_status"] == "scores_required"
+    assert report["publishable"] is False
+    assert len(report["events"]) == 3
+    assert all(event["metric_status"] == "scores_required" for event in report["events"])
+    assert any("patch-score CSV" in blocker for blocker in report["blockers"])
+
+
+def test_cross_region_event_metrics_from_real_score_csv(tmp_path):
+    scores = tmp_path / VALIDATION_EVENTS[0].score_filename
+    scores.write_text(
+        "patch_id,ground_truth_label,model_probability,runtime_seconds\n"
+        "a,0,0.1,0.2\n"
+        "b,1,0.9,0.2\n"
+        "c,1,0.8,0.2\n"
+        "d,0,0.2,0.2\n",
+        encoding="utf-8",
+    )
+
+    result = evaluate_event(VALIDATION_EVENTS[0], tmp_path)
+
+    assert result["metric_status"] == "computed"
+    assert result["patches"] == 4
+    assert result["auc_roc"] == 1.0
+    assert result["accuracy"] == 1.0
+    assert result["precision"] == 1.0
+    assert result["recall"] == 1.0
+    assert result["f1"] == 1.0
+    assert result["time_seconds"] == 0.8
+
+
+def test_cross_region_endpoint_contract():
+    response = client.get("/validation/scenarios/cross-region")
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["references_file"] == "references"
+    assert "health" in data
+    assert {"location", "event_period", "ground_truth_source", "metric_status"}.issubset(data["events"][0].keys())
+    assert data["events"][0]["buffer_km"] == 50.0
+    assert data["events"][0]["label_file"].endswith("bangladesh_2024_ground_truth_labels.csv")
+    assert data["events"][0]["prediction_file"].endswith("bangladesh_2024_sentinel_predictions.csv")
+
+
+def test_binary_metrics_are_thresholded_and_ranked():
+    metrics = binary_metrics([0, 1, 1, 0], [0.7, 0.9, 0.2, 0.1])
+
+    assert metrics["auc_roc"] == 0.75
+    assert metrics["accuracy"] == 0.5
+    assert metrics["precision"] == 0.5
+    assert metrics["recall"] == 0.5
+    assert metrics["f1"] == 0.5
+
+
+def test_cross_region_join_refuses_missing_prediction_file(tmp_path):
+    import importlib.util
+    from pathlib import Path
+
+    script = Path(__file__).resolve().parents[1] / "scripts" / "join_cross_region_scores.py"
+    spec = importlib.util.spec_from_file_location("join_cross_region_scores", script)
+    module = importlib.util.module_from_spec(spec)
+    assert spec.loader is not None
+    spec.loader.exec_module(module)
+
+    labels_dir = tmp_path / "labels"
+    predictions_dir = tmp_path / "predictions"
+    scores_dir = tmp_path / "scores"
+    labels_dir.mkdir()
+    scores_dir.mkdir()
+    event = VALIDATION_EVENTS[0]
+    (labels_dir / event.label_filename).write_text(
+        "patch_id,lat,lon,ground_truth_label,label_source\n"
+        "a,1.0,2.0,0,test\n",
+        encoding="utf-8",
+    )
+
+    status = module._join_event(event, labels_dir, predictions_dir, scores_dir)
+
+    assert status["status"] == "blocked"
+    assert "Missing Sentinel prediction file" in status["blocker"]
+
+
 def test_surface_water_prior_has_arid_controls():
     assert _surface_water_prior(23.685, 90.3563) > _surface_water_prior(23.0, 12.0)
     assert _surface_water_prior(-23.0, -70.0) == 0.0
@@ -429,7 +518,7 @@ def test_train_predict_small_model(tmp_path, monkeypatch):
     X, y = generate_synthetic_training_data()
     model = train(X[:600], y[:600])
     assert classifier_module.MODEL_PATH.exists()
-    proba = model.predict_proba(X[:1])[0][1]
+    proba = model.predict_proba(X[:1, classifier_module.MODEL_FEATURE_INDICES])[0][1]
     assert 0.0 <= float(proba) <= 1.0
 
 

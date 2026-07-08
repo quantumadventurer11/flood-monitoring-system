@@ -3,7 +3,7 @@ import { ArrowRight } from "lucide-react";
 const phases = [
   { title: "Data Acquisition", steps: ["Sentinel-1 (VV SAR)", "Sentinel-2 (B4, NDWI, NDVI)", "QA60 cloud mask"] },
   { title: "Preprocessing", steps: ["Cloud masking", "NDWI computation", "Normalization", "Patch tiling (64x64)"] },
-  { title: "Model Development", steps: ["61-feature extraction", "XGBoost training", "ROC-AUC evaluation"] },
+  { title: "Model Development", steps: ["61-feature extraction", "45 non-NDWI inputs", "XGBoost validation"] },
   { title: "Alert Generation", steps: ["Flood probability threshold", "Risk level (Low/Medium/High)", "Alert dispatch"] },
 ];
 

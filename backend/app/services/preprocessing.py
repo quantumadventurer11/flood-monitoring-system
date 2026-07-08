@@ -127,6 +127,7 @@ def preprocess_scene(scene: dict, patch_size: int = 64) -> list[dict]:
             {
                 "features": features,
                 "label": int(raw_water_fraction > 0.05),
+                "ndwi_water_fraction": raw_water_fraction,
                 "patch_id": f"{scene.get('date', 'scene')}-{index:05d}",
             }
         )

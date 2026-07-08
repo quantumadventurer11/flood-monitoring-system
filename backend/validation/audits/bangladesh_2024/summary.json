@@ -1,16 +1,18 @@
 {
-  "artifact_status": "scores_required",
+  "artifact_status": "computed",
   "patches": 1024,
-  "scored_patches": 0,
+  "scored_patches": 1024,
   "flooded_patches": 32,
   "error_type_counts": {
-    "score_missing": 1024
+    "false_positive": 953,
+    "true_negative": 39,
+    "true_positive": 32
   },
   "evidence_tiers": [
     "ground_truth: UNOSAT flood labels only",
     "model_signal: Sentinel-derived NDWI/features and XGBoost probabilities when supplied",
     "operational_forecast: Open-Meteo context only, not validation"
   ],
-  "publishable": false,
+  "publishable": true,
   "note": "Patch labels come from UNOSAT. NDWI water fraction and model probability are audited as independent score columns, never as label sources."
 }

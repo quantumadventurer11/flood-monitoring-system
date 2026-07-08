@@ -19,6 +19,7 @@ TOKEN_URL = "https://identity.dataspace.copernicus.eu/auth/realms/CDSE/protocol/
 CATALOGUE_URL = "https://catalogue.dataspace.copernicus.eu/odata/v1/Products"
 DOWNLOAD_URL = "https://zipper.dataspace.copernicus.eu/odata/v1/Products({product_id})/$value"
 OPEN_METEO_ARCHIVE_URL = "https://archive-api.open-meteo.com/v1/era5"
+VALIDATION_RASTER_SHAPE = (512, 512)
 
 
 def credentials_available() -> bool:
@@ -63,8 +64,6 @@ async def _search_products(client: httpx.AsyncClient, collection: str, product_f
         f"OData.CSC.Intersects(area=geography'SRID=4326;{polygon}')",
         product_filter,
     ]
-    if collection == "SENTINEL-2":
-        filters.append("Attributes/OData.CSC.DoubleAttribute/any(att:att/Name eq 'cloudCover' and att/OData.CSC.DoubleAttribute/Value lt 30)")
     params = {"$filter": " and ".join(filters), "$orderby": "ContentDate/Start desc", "$top": str(top)}
     response = await client.get(CATALOGUE_URL, params=params)
     response.raise_for_status()
@@ -90,14 +89,19 @@ def _find_member(zf: zipfile.ZipFile, candidates: list[str]) -> str:
 
 def _read_zip_raster(zf: zipfile.ZipFile, member: str, out_shape: tuple[int, int] | None = None) -> np.ndarray:
     suffix = Path(member).suffix or ".tif"
-    with tempfile.NamedTemporaryFile(suffix=suffix) as tmp:
-        tmp.write(zf.read(member))
-        tmp.flush()
-        with rasterio.open(tmp.name) as src:
+    tmp_path: Path | None = None
+    try:
+        with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as tmp:
+            tmp.write(zf.read(member))
+            tmp_path = Path(tmp.name)
+        with rasterio.open(tmp_path) as src:
             if out_shape:
                 arr = src.read(1, out_shape=out_shape, resampling=Resampling.bilinear)
             else:
                 arr = src.read(1)
+    finally:
+        if tmp_path and tmp_path.exists():
+            tmp_path.unlink(missing_ok=True)
     return np.asarray(arr, dtype=float)
 
 
@@ -106,7 +110,7 @@ def _extract_s2(zip_bytes: bytes) -> dict[str, np.ndarray]:
         b03_member = _find_member(zf, ["_B03_10m.jp2", "_B03.jp2", "B03_10m"])
         b04_member = _find_member(zf, ["_B04_10m.jp2", "_B04.jp2", "B04_10m"])
         b08_member = _find_member(zf, ["_B08_10m.jp2", "_B08.jp2", "B08_10m"])
-        b03 = _read_zip_raster(zf, b03_member)
+        b03 = _read_zip_raster(zf, b03_member, VALIDATION_RASTER_SHAPE)
         target_shape = b03.shape
         b04 = _read_zip_raster(zf, b04_member, target_shape)
         b08 = _read_zip_raster(zf, b08_member, target_shape)
@@ -120,7 +124,17 @@ def _extract_s2(zip_bytes: bytes) -> dict[str, np.ndarray]:
 
 def _extract_s1_vv(zip_bytes: bytes, target_shape: tuple[int, int]) -> np.ndarray:
     with zipfile.ZipFile(io.BytesIO(zip_bytes)) as zf:
-        vv_member = _find_member(zf, ["measurement", "-vv-", "_vv_", "vv"])
+        vv_candidates = [
+            name
+            for name in zf.namelist()
+            if not name.endswith("/")
+            and name.lower().endswith((".tif", ".tiff"))
+            and "measurement" in name.lower()
+            and ("-vv-" in name.lower() or "_vv_" in name.lower() or "vv" in Path(name).stem.lower())
+        ]
+        if not vv_candidates:
+            raise FileNotFoundError("No Sentinel-1 VV measurement GeoTIFF found in product ZIP")
+        vv_member = sorted(vv_candidates, key=len)[0]
         return _read_zip_raster(zf, vv_member, target_shape)
 
 
@@ -226,7 +240,7 @@ async def fetch_satellite_scene(country: str, lat: float, lon: float, buffer_km:
             s2 = await _search_products(
                 client,
                 "SENTINEL-2",
-                "Attributes/OData.CSC.StringAttribute/any(att:att/Name eq 'productType' and att/OData.CSC.StringAttribute/Value eq 'S2MSI2A')",
+                "contains(Name,'MSIL2A')",
                 lat,
                 lon,
                 buffer_km,
@@ -236,7 +250,7 @@ async def fetch_satellite_scene(country: str, lat: float, lon: float, buffer_km:
             s1 = await _search_products(
                 client,
                 "SENTINEL-1",
-                "Attributes/OData.CSC.StringAttribute/any(att:att/Name eq 'productType' and contains(att/OData.CSC.StringAttribute/Value,'GRD'))",
+                "contains(Name,'GRD')",
                 lat,
                 lon,
                 buffer_km,
@@ -244,7 +258,7 @@ async def fetch_satellite_scene(country: str, lat: float, lon: float, buffer_km:
                 end_date,
             )
             if not s2 or not s1:
-                raise RuntimeError("No matching Sentinel-1/Sentinel-2 products found")
+                raise RuntimeError(f"No matching Sentinel-1/Sentinel-2 products found: sentinel_2={len(s2)}, sentinel_1={len(s1)}")
             s2_zip = await _download_zip(client, token, s2[0]["Id"])
             s1_zip = await _download_zip(client, token, s1[0]["Id"])
 

@@ -27,22 +27,53 @@
     "flooded_percent": 3.12,
     "grid": "32x32 patch-centroid labels over the UNOSAT analysed extent"
   },
-  "metric_status": "scores_required",
-  "metric_note": "Provide real patch-level NDWI water fractions and model probabilities with --scores-csv to compute publishable independent metrics.",
-  "patch_audit": {
-    "artifact_status": "scores_required",
+  "metric_status": "computed",
+  "publishable": true,
+  "metric_note": "Metrics compare supplied patch scores against UNOSAT flood-extent labels; NDWI scores are not used as labels.",
+  "ndwi_threshold_metrics": {
     "patches": 1024,
-    "scored_patches": 0,
+    "roc_auc": 0.4232,
+    "accuracy": 0.8008,
+    "precision": 0.0114,
+    "recall": 0.0625,
+    "f1": 0.0192,
+    "confusion_matrix": {
+      "tn": 818,
+      "fp": 174,
+      "fn": 30,
+      "tp": 2
+    }
+  },
+  "model_probability_metrics": {
+    "patches": 1024,
+    "roc_auc": 0.3681,
+    "accuracy": 0.0693,
+    "precision": 0.0325,
+    "recall": 1.0,
+    "f1": 0.0629,
+    "confusion_matrix": {
+      "tn": 39,
+      "fp": 953,
+      "fn": 0,
+      "tp": 32
+    }
+  },
+  "patch_audit": {
+    "artifact_status": "computed",
+    "patches": 1024,
+    "scored_patches": 1024,
     "flooded_patches": 32,
     "error_type_counts": {
-      "score_missing": 1024
+      "false_positive": 953,
+      "true_negative": 39,
+      "true_positive": 32
     },
     "evidence_tiers": [
       "ground_truth: UNOSAT flood labels only",
       "model_signal: Sentinel-derived NDWI/features and XGBoost probabilities when supplied",
       "operational_forecast: Open-Meteo context only, not validation"
     ],
-    "publishable": false,
+    "publishable": true,
     "note": "Patch labels come from UNOSAT. NDWI water fraction and model probability are audited as independent score columns, never as label sources."
   }
 }

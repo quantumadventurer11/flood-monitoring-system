@@ -1,6 +1,6 @@
 # Flood Monitoring System
 
-A full-stack flood monitoring and prediction web application based on the supplied GLOC 2026 research paper. The app combines Sentinel-1/Sentinel-2 acquisition, a 61-feature preprocessing pipeline, XGBoost flood classification, Open-Meteo forecasting, and a React dashboard that reproduces the methodology figures and tables.
+A full-stack flood monitoring and prediction web application based on the supplied GLOC 2026 research paper. The app combines Sentinel-1/Sentinel-2 acquisition, a 61-feature preprocessing pipeline, NDWI-free XGBoost flood classification, Open-Meteo forecasting, and a React dashboard that separates real validation metrics from simulated paper/demo figures.
 
 ## Prerequisites
 
@@ -59,7 +59,7 @@ docker compose down
 | `POST` | `/ingest` | Fetch/validate Sentinel scene availability or fallback scene metadata. |
 | `POST` | `/predict` | Fetch satellite/fallback arrays, preprocess, classify flood risk, and store prediction. |
 | `POST` | `/forecast` | Fetch Open-Meteo weather/flood data and return a five-day flood likelihood forecast. |
-| `GET` | `/paper-results` | Return seeded paper metrics, tables, sensitivity analysis, and key findings. |
+| `GET` | `/paper-results` | Return paper/validation metrics with explicit real-vs-simulated status fields. |
 | `GET` | `/events` | Return recent flood events. |
 | `GET` | `/alerts` | Return active flood alerts. |
 | `GET` | `/regions` | Return global flood-prone countries with centroids and baseline risk. |
@@ -74,7 +74,7 @@ Fallback behavior:
 
 - `/predict` uses Open-Meteo ERA5 proxy data to create satellite-like B03/B04/B08/VV/QA60 arrays.
 - The real preprocessing pipeline still runs on those arrays.
-- XGBoost still predicts from the extracted 61-feature vector.
+- XGBoost accepts the extracted 61-feature vector but predicts from the 45 non-NDWI features only.
 - `/forecast` still uses live Open-Meteo forecast and flood APIs when available.
 
 ## Paper Reproduction
@@ -90,7 +90,7 @@ The Methodology page reproduces:
 - Table A1 model performance
 - Table 3 ablation study
 
-Table A1 and Table 3 values are treated as authoritative where PDF prose conflicts with structured results.
+The Methodology page badges real validation rows separately from simulated/not-publishable comparison figures. The old ROC comparison curves are retained only as simulated context.
 
 ## Independent Validation Audit
 
@@ -113,7 +113,17 @@ To compute publishable validation metrics, provide a CSV containing real patch-l
 python scripts/validate_unosat_bangladesh.py --scores-csv path/to/patch_scores.csv
 ```
 
-The CSV must contain `patch_id`, `ndwi_water_fraction`, and `model_probability`. NDWI-derived water fraction is treated as a feature or score, not as the ground-truth label.
+The CSV must contain `patch_id`, `ndwi_water_fraction`, and `model_probability`. NDWI-derived water fraction is treated as an audited score, not as the ground-truth label or an XGBoost model input.
+
+Current real Bangladesh validation artifacts were generated with:
+
+```bash
+python scripts/generate_unosat_bangladesh_scores.py
+python scripts/validate_unosat_bangladesh.py --scores-csv validation/bangladesh_2024_real_scores.csv
+python scripts/analyze_unosat_bangladesh_validation.py
+```
+
+Current real UNOSAT validation result for the NDWI-free XGBoost model: AUC ROC `0.3681`, accuracy `0.0693`, precision `0.0325`, recall `1.0`, F1 `0.0629`, over `1,024` patches. These are computed numbers, but they show the current model over-predicts flood and is not strong enough to describe as publication-ready.
 
 The patch audit CSV keeps the evidence tiers separate:
 

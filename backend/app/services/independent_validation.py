@@ -279,6 +279,7 @@ def summarize_validation(labels: list[PatchLabel], scores: dict[str, dict[str, f
             "grid": "32x32 patch-centroid labels over the UNOSAT analysed extent",
         },
         "metric_status": "scores_required",
+        "publishable": False,
         "metric_note": "Provide real patch-level NDWI water fractions and model probabilities with --scores-csv to compute publishable independent metrics.",
     }
     if scores is None:
@@ -294,6 +295,7 @@ def summarize_validation(labels: list[PatchLabel], scores: dict[str, dict[str, f
     summary.update(
         {
             "metric_status": "computed",
+            "publishable": len(matched) == len(labels),
             "metric_note": "Metrics compare supplied patch scores against UNOSAT flood-extent labels; NDWI scores are not used as labels.",
             "ndwi_threshold_metrics": _metrics(y_matched, ndwi_scores, threshold=0.05),
             "model_probability_metrics": _metrics(y_matched, model_scores, threshold=0.5),

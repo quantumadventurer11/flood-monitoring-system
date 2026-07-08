@@ -1,0 +1,28 @@
+{
+  "events": [
+    {
+      "key": "bangladesh_2024",
+      "location": "Bangladesh",
+      "status": "ready",
+      "score_file": "validation\\cross_region\\scores\\bangladesh_2024_patch_scores.csv",
+      "patches": 35,
+      "flooded_patches": 2,
+      "non_flooded_patches": 33,
+      "blocker": null
+    },
+    {
+      "key": "pakistan_2022",
+      "location": "Pakistan",
+      "status": "blocked",
+      "score_file": "validation\\cross_region\\scores\\pakistan_2022_patch_scores.csv",
+      "blocker": "Missing label file: C:\\Users\\benja\\Documents\\Natural Disaster Detection System\\repo\\backend\\validation\\cross_region\\labels\\pakistan_2022_ground_truth_labels.csv"
+    },
+    {
+      "key": "mozambique_2023",
+      "location": "Mozambique",
+      "status": "blocked",
+      "score_file": "validation\\cross_region\\scores\\mozambique_2023_patch_scores.csv",
+      "blocker": "Missing label file: C:\\Users\\benja\\Documents\\Natural Disaster Detection System\\repo\\backend\\validation\\cross_region\\labels\\mozambique_2023_ground_truth_labels.csv"
+    }
+  ]
+}

@@ -8,7 +8,10 @@ import xgboost as xgb
 from app.services.risk import classification, risk_level
 
 
-MODEL_PATH = Path(__file__).resolve().parents[1] / "ml" / "xgboost_model.pkl"
+MODEL_PATH = Path(__file__).resolve().parents[1] / "ml" / "xgboost_model_ndwi_free.pkl"
+FEATURE_COUNT = 61
+NDWI_FEATURE_INDICES = set(range(45, 60)) | {60}
+MODEL_FEATURE_INDICES = [index for index in range(FEATURE_COUNT) if index not in NDWI_FEATURE_INDICES]
 PAPER_MONTHS = [
     ("June", 2630, 0.418),
     ("July", 2249, 0.133),
@@ -90,7 +93,7 @@ def generate_synthetic_training_data(seed: int = 42) -> tuple[np.ndarray, np.nda
 
 
 def train(X: np.ndarray, y: np.ndarray) -> xgb.XGBClassifier:
-    """Train and persist an XGBoost binary flood classifier."""
+    """Train and persist an XGBoost binary flood classifier without NDWI-derived inputs."""
 
     positives = int(np.sum(y == 1))
     negatives = int(np.sum(y == 0))
@@ -103,7 +106,8 @@ def train(X: np.ndarray, y: np.ndarray) -> xgb.XGBClassifier:
         eval_metric="logloss",
         random_state=42,
     )
-    X_train, _X_val, y_train, _y_val = train_test_split(X, y, test_size=0.2, stratify=y, random_state=42)
+    X_model = X[:, MODEL_FEATURE_INDICES]
+    X_train, _X_val, y_train, _y_val = train_test_split(X_model, y, test_size=0.2, stratify=y, random_state=42)
     model.fit(X_train, y_train)
     MODEL_PATH.parent.mkdir(parents=True, exist_ok=True)
     joblib.dump(model, MODEL_PATH)
@@ -126,10 +130,11 @@ class FloodClassifier:
         return self.model
 
     def predict(self, features: list[float]) -> dict[str, float | str]:
-        if len(features) != 61:
-            raise ValueError(f"Expected 61 features, received {len(features)}")
+        if len(features) != FEATURE_COUNT:
+            raise ValueError(f"Expected {FEATURE_COUNT} features, received {len(features)}")
         model = self.load()
-        proba = float(model.predict_proba(np.asarray([features], dtype=float))[0][1])
+        model_features = np.asarray([[features[index] for index in MODEL_FEATURE_INDICES]], dtype=float)
+        proba = float(model.predict_proba(model_features)[0][1])
         proba = float(np.clip(proba, 0.0, 1.0))
         return {
             "flood_probability": round(proba, 4),

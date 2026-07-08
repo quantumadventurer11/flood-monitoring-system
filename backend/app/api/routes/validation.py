@@ -5,6 +5,7 @@ from pathlib import Path
 from fastapi import APIRouter
 
 from app.schemas import ValidationScenarioResponse
+from app.services.cross_region_validation import build_cross_region_report
 from app.services.independent_validation import (
     UNOSAT_BANGLADESH_2024,
     PatchLabel,
@@ -83,6 +84,13 @@ async def bangladesh_2024_scenario() -> dict:
         "validation_audit": validation_audit,
         "prediction": prediction,
     }
+
+
+@router.get("/cross-region")
+async def cross_region_validation() -> dict:
+    """Return cross-region validation readiness, real metrics when supplied, and app health."""
+
+    return build_cross_region_report()
 
 
 def _unosat_labels() -> list[PatchLabel]:

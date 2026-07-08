@@ -2,9 +2,9 @@ const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:8000";
 
 export type PaperResults = {
   dataset_stats: Array<{ month: string; date: string; total_patches: number; flooded_percent: number }>;
-  model_metrics: Array<{ rank: number; model: string; roc_auc: number; accuracy: string; precision: string; recall: string; f1: number; training_time_s?: number }>;
-  ablation_results: Array<{ configuration: string; features: number; roc_auc: number; accuracy: number; precision: number; recall: number; f1: number; time_s: number }>;
-  confusion_matrices: Array<{ model: string; test_patches: number; missed_floods: number; false_positives: number }>;
+  model_metrics: Array<{ rank: number; model: string; roc_auc: number; accuracy: string; precision: string; recall: string; f1: number; training_time_s?: number; result_status?: string; note?: string }>;
+  ablation_results: Array<{ configuration: string; features: number; roc_auc: number; accuracy: number; precision: number; recall: number; f1: number; time_s: number; result_status?: string }>;
+  confusion_matrices: Array<{ model: string; test_patches: number; missed_floods: number; false_positives: number; true_positives?: number; true_negatives?: number; result_status?: string }>;
   metric_audit: Array<{ item: string; table_a1_value?: number; resolved_value?: number; status: string; note: string }>;
   independent_validation: {
     evidence_tiers?: Array<{ tier: string; source: string; role: string }>;
@@ -26,8 +26,37 @@ export type PaperResults = {
     ground_truth: { patches: number; flooded_patches: number; flooded_percent: number; grid: string };
     metric_status: string;
     metric_note: string;
+    score_artifact?: string;
     first_principles_note?: string;
     patch_audit_artifact?: string;
+    summary_artifact?: string;
+    failure_analysis_artifact?: string;
+    buffer_ablation_artifact?: string;
+    ndwi_threshold_metrics?: {
+      patches: number;
+      roc_auc: number;
+      accuracy: number;
+      precision: number;
+      recall: number;
+      f1: number;
+      confusion_matrix: { tn: number; fp: number; fn: number; tp: number };
+    };
+    model_probability_metrics?: {
+      patches: number;
+      roc_auc: number;
+      accuracy: number;
+      precision: number;
+      recall: number;
+      f1: number;
+      confusion_matrix: { tn: number; fp: number; fn: number; tp: number };
+    };
+    failure_case_summary?: {
+      false_positives: number;
+      false_negatives: number;
+      true_positives: number;
+      true_negatives: number;
+      note: string;
+    };
     operational_fallback_audit?: {
       metric_status: string;
       sample: string;

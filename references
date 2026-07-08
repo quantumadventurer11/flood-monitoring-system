@@ -1,0 +1,81 @@
+# Cross-Region Flood Validation References
+
+This file records the historical flood periods selected for cross-region validation. News and official reports justify when and where to test; publishable model metrics must still be computed against independent geospatial flood labels, not against news text or NDWI-derived labels.
+
+## Bangladesh: August/September 2024 Floods
+
+- Event period for validation: 2024-08-28 to 2024-09-04
+- Validation area: 50 km validation buffer centered on a UNOSAT flood cluster near `24.462485,90.417462`; the full UNOSAT analysed extent is approximately bbox `88.008628,20.590609,92.680307,26.634513`
+- Primary geospatial ground truth: UNOSAT product 3954, `FL20240825BGD`
+- Ground-truth URL: https://unosat.org/products/3954
+- Shapefile URL: https://unosat.org/static/unosat_filesystem/3954/FL20240825BGD_SHP.zip
+- Report title: Satellite detected water extents between 28 August & 4 September 2024 in Bangladesh
+- Reported impact in local metadata: 8,100 km2 flooded area, 8,700 km2 receded area, 6,200,000 exposed population
+- Source type: usable geospatial ground truth
+- Validation note: This source is already represented by `backend/validation/audits/bangladesh_2024/patch_level_audit.csv`; scores are still required before model metrics are publishable.
+
+## Pakistan: August 2022 Monsoon Floods
+
+- Event period for validation: 2022-08-03 to 2022-08-23, with reporting peak around late August 2022
+- Validation area: Sindh/Balochistan flood-affected areas; exact bbox must match the downloaded geospatial flood extent product
+- Primary geospatial ground truth target: UNOSAT/Copernicus-style flood extent product for Pakistan 2022 monsoon floods
+- Known report title to locate/download: Satellite detected water extents between 03 and 23 August 2022 over Pakistan
+- Historical report: BBC, "Pakistan floods: Map and satellite photos show extent of devastation", 2022-08-31, https://www.bbc.com/news/world-asia-62728678
+- Historical report: Reuters via Axios summary, "Parts of Pakistan look like a sea as country copes with deadly floods", 2022-09-07, https://www.axios.com/2022/09/07/pakistan-floods-death-toll-climate-change
+- Historical report: Time, "A Monsoon on Steroids. What To Know About Pakistan's Catastrophic Floods", 2022-08-31, https://time.com/6209967/pakistan-floods-what-to-know/
+- Source type: historical/news evidence plus geospatial ground truth to be downloaded before metrics are accepted
+- Validation note: News reports justify event selection only. Final metrics require a real patch-level label CSV generated from a downloaded flood extent layer.
+
+## Mozambique: March 2023 Cyclone Freddy Floods
+
+- Event period for validation: 2023-03-11 to 2023-03-15
+- Validation area: Sofala and Zambezia Provinces, Mozambique; exact bbox must match the downloaded geospatial flood extent product
+- Primary geospatial ground truth target: UNOSAT/Copernicus-style flood extent product for Cyclone Freddy flooding
+- Known report title to locate/download: Satellite detected water extent over Sofala and Zambezia Provinces, Mozambique as of 13 Mar. 2023
+- Historical report: AP, "Cyclone Freddy slams Mozambique with dangerous rainfall", 2023-02-24, https://apnews.com/article/80954c31303f3370aa175a8f4f9d917d
+- Historical report: AP, "Hundreds dead as Cyclone Freddy wrecks Malawi, Mozambique", 2023-03-14, https://apnews.com/article/7a0949c6ea48dec4fa772f5d05c494d5
+- Historical report: ReliefWeb/OCHA flash updates for Cyclone Freddy response, March 2023, https://reliefweb.int/
+- Source type: historical/news evidence plus geospatial ground truth to be downloaded before metrics are accepted
+- Validation note: Final metrics require real Sentinel-backed model scores aligned with independent flood extent labels.
+
+## Required Patch-Score CSV Contract
+
+Ground-truth label CSVs are prepared under `backend/validation/cross_region/labels/`.
+Sentinel-backed model prediction CSVs are prepared under `backend/validation/cross_region/predictions/`.
+The final metric CSVs under `backend/validation/cross_region/scores/` should be created only after spatially joining those two products.
+
+Each event must provide a real patch-score CSV named:
+
+- `bangladesh_2024_patch_scores.csv`
+- `pakistan_2022_patch_scores.csv`
+- `mozambique_2023_patch_scores.csv`
+
+Required columns:
+
+- `patch_id`
+- `ground_truth_label` where `1` means flooded and `0` means not flooded
+- `model_probability` from the flood model
+
+Optional columns:
+
+- `ndwi_water_fraction`
+- `lat`
+- `lon`
+- `runtime_seconds`
+
+The validation script refuses to report publishable AUC ROC, accuracy, precision, recall, or F1 unless real patch-level labels and model probabilities are present.
+
+## Official Source File Placement
+
+Place official downloaded geospatial flood extent files here before running ground-truth preparation:
+
+```text
+backend/validation/cross_region/official_sources/
+```
+
+Accepted filenames:
+
+- `pakistan_2022.geojson` or `pakistan_2022.zip`
+- `mozambique_2023.geojson` or `mozambique_2023.zip`
+
+ZIP files must contain `.shp`, `.shx`, and `.dbf` shapefile members. These files must come from official UNOSAT, Copernicus EMS, or equivalent official flood extent products.

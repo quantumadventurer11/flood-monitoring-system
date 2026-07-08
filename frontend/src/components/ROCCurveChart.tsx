@@ -16,7 +16,9 @@ const data = xs.map((fpr, i) => ({
 export default function ROCCurveChart() {
   const colors = ["#0f766e", "#2563eb", "#7c3aed", "#16a34a", "#f97316", "#dc2626", "#94a3b8"];
   return (
-    <div className="h-96">
+    <div>
+      <div className="mb-3 inline-flex rounded bg-red-100 px-2 py-1 text-xs font-bold text-red-800">SIMULATED / NOT PUBLISHABLE CURVES</div>
+      <div className="h-96">
       <ResponsiveContainer>
         <LineChart data={data} margin={{ top: 12, right: 24, left: 0, bottom: 8 }}>
           <CartesianGrid strokeDasharray="3 3" />
@@ -29,6 +31,7 @@ export default function ROCCurveChart() {
           ))}
         </LineChart>
       </ResponsiveContainer>
+      </div>
     </div>
   );
 }
